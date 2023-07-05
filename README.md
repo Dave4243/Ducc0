@@ -16,3 +16,8 @@ More updates in the future
       - Mobility
       - Pawn Structure
       - King Safety
+
+RESOURCES:
+https://www.chessprogramming.org/Main_Page
+https://web.archive.org/web/20071026090003/http://www.brucemo.com/compchess/programming/index.htm
+Stockfish Discord
