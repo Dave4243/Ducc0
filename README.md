@@ -5,7 +5,7 @@ Play Ducc0 at https://lichess.org/@/Ducc0
 
 Features:
   - Simple tapered evaluation with material + piece square tables
-  - Principal Variation search
+  - Principal Variation search inside iterative deepening framework
   - Transposition table using Zobrist hash
   - Move ordering
 
