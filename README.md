@@ -1,23 +1,28 @@
 # Ducc0
-Chess program written in Java
+Chess Engine written in Java
 
 Play Ducc0 at https://lichess.org/@/Ducc0
 
 Features:
-  - Simple tapered evaluation with material + piece square tables
-  - Principal Variation search inside iterative deepening framework
-  - Transposition table using Zobrist hash
-  - Move ordering
+  - BitBoards
+  - Move Generation with Kindergarden BitBoards
+      - Maybe switch to magic bitboards in the future, KBB improved movegen well enough for now
+  - Tapered Evaluation
+  - Principal Variation Search
+  - Transposition Table
+  - Killer Move Heuristic
+  - Check Extensions (110 elo gain)
+  - 
 
 More updates in the future
-  - Check extensions
   - Null move pruning
   - Better evaluation
       - Mobility
       - Pawn Structure
       - King Safety
 
-RESOURCES:
-https://www.chessprogramming.org/Main_Page
-https://web.archive.org/web/20071026090003/http://www.brucemo.com/compchess/programming/index.htm
-Stockfish Discord
+RESOURCES: 
+  - https://www.chessprogramming.org/Main_Page
+  - https://web.archive.org/web/20071026090003
+  - http://www.brucemo.com/compchess/programming/index.htm
+  - CUTECHESS
