@@ -225,43 +225,27 @@ public class Board {
 		Piece temp = null;
 		switch (flag) {
 			case 0b0001:
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[7], 7)];
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[5], 5)];
 				temp = pieces[5];
 				pieces[5] = pieces[7];
 				pieces[7] = temp;
 				castleMask = 0xa0L;
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[7], 7)];
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[5], 5)];
 				break;
 			case 0b0010:
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[3], 3)];
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[0], 0)];
 				temp = pieces[3];
 				pieces[3] = pieces[0];
 				pieces[0] = temp;
 				castleMask = 0x9L;
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[0], 0)];
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[3], 3)];
 				break;
 			case 0b0100:
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[61], 61)];
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[63], 63)];
 				temp = pieces[61];
 				pieces[61] = pieces[63];
 				pieces[63] = temp;
 				castleMask = 0xa000000000000000L;
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[61], 61)];
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[63], 63)];
 				break;
 			case 0b1000:
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[56], 56)];
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[59], 59)];
 				temp = pieces[59];
 				pieces[59] = pieces[56];
 				pieces[56] = temp;
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[59], 59)];
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[56], 56)];
 				castleMask = 0x900000000000000L;
 				break;
 		}
@@ -296,12 +280,25 @@ public class Board {
 	}
 	
 	public void makeNullMove() {
+		stack.add(new BoardState(halfMoveClock, zobristKey, castlingRights, enPassantTarget));
 		sideToMove = 1-sideToMove;
 		zobristKey ^= Zobrist.KEYS[Zobrist.SIDEINDEX];
+		
+		if (enPassantTarget != 0) {
+			int targetFile = BitBoard.getLSB(enPassantTarget) & 7;
+			zobristKey ^= Zobrist.KEYS[Zobrist.ENPASSANTINDEX + targetFile];
+		}
 		enPassantTarget = 0;
 	}
 	
-	
+	public void unMakeNullMove() {
+		BoardState pastState = stack.pollLast();
+		sideToMove = 1-sideToMove;
+		this.halfMoveClock = pastState.getHalfmoves();
+		this.zobristKey = pastState.getZobrist();
+		this.castlingRights = pastState.getCastlingRights();
+		this.enPassantTarget = pastState.getEnPassantBB();
+	}
 	
 	public long getBitBoard(int color, int type) {
 		return bitBoards[color][type];
@@ -365,6 +362,10 @@ public class Board {
 	
 	public Piece getPiece(int index) {
 		return pieces[index];
+	}
+	
+	public int getKingpos(int color) {
+		return BitBoard.getLSB(bitBoards[color][Piece.KING]);
 	}
 	
 	public String toString() {
