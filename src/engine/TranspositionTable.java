@@ -31,6 +31,9 @@ public class TranspositionTable {
 			return true;
 		}
 		
+		if (e.getNodeType() == NodeType.EXACT && type != NodeType.EXACT && e.getAge() - age > -3)
+			return false;
+		
 		if (e.getDepth() > depth && e.getHash() == zobristKey)
 			return false;
 
