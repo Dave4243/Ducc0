@@ -7,18 +7,21 @@ import java.util.ArrayList;
  */
 public class MoveOrderer {
 	
-	private static int[] pieceValues = {100, 310, 320, 520, 950, 32000};
+	private static int[] pieceValues = {100, 315, 315, 520, 950, 32000};
 	
 	public static Move[][] killerTable = new Move[100][2];
+	public static int[][][] historyTable = new int[2][6][64];
+	private static final int captureBonus = 1024;
 	
 	/**
 	 * 1. Hash/PV Moves (Moves deemed best from the transposition table)
 	 * 2. Winning captures/promotions
 	 * 3. Equal captures/promotions
-	 * 4. Losing captures/promotions
-	 * 4. Everything else
+	 * 4. Killer Moves
+	 * 5. Quiet moves ordered based on history heuristic
+	 * 6. Losing captures/promotions
 	 */
-	public static void fullSort(Board b, ArrayList<Move> moves, Move hashMove, long hash, int ply) {
+	public static void fullSort(Board b, ArrayList<Move> moves, Move hashMove, int ply) {
 		for (int i = 0; i < moves.size() - 1; i++) {
 			int value = computeValue(b, moves.get(i));
 			int maxIndex = i;
@@ -26,7 +29,7 @@ public class MoveOrderer {
 				int newValue = computeValue(b, moves.get(j));
 				
 				if (isKiller(moves.get(j), ply))
-					newValue = -15; // right after an equal capture
+					newValue = 1023; // right after an equal capture
 				
 				if (moves.get(j).equals(hashMove)) {
 					maxIndex = j;
@@ -71,7 +74,7 @@ public class MoveOrderer {
 				int newValue = computeValue(b, moves.get(j));
 				
 				if (isKiller(moves.get(j), ply))
-					newValue = -15; // right after an equal capture
+					newValue = 1023; // right after an equal capture
 				
 				if (newValue > value) {
 					value = newValue;
@@ -91,10 +94,11 @@ public class MoveOrderer {
 	}
 	
 	private static int computeValue(Board b, Move m) {
-		
-		// non captures are searched after equal captures and killers
-		if (m.getCapturedPiece() == null) {
-			return -50;
+		// quiet moves are searched after equal captures and killers
+		if (m.getCapturedPiece() == null && m.getPromotionPiece() == Piece.NULL) {
+			Piece p = b.getPiece(m.getFromSquare());
+			// max value at 1024
+			return historyTable[p.getColor()][p.getType()][m.getToSquare()];
 		}
 		
 		int promotion = 0;
@@ -108,12 +112,16 @@ public class MoveOrderer {
 		if (m.getCapturedPiece() != null) {
 			victim = pieceValues[m.getCapturedPiece().getType()];
 		}
-		
-		return victim - aggressor + promotion;
+		int score = victim - aggressor + promotion;
+		return (score+1) * captureBonus; // equal capture = 1024
 	}
 	
 	public static void clearKillers() {
 		killerTable = new Move[100][2];
+	}
+	
+	public static void clearHistory() {
+		historyTable = new int[2][6][64];
 	}
 	
 	private MoveOrderer() {};

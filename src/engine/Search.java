@@ -15,18 +15,19 @@ public class Search {
 	private TranspositionTable tTable;
 	private Board              b;
 	
-	private int searchedPVNodes;
-	private int storedPVNodes;
-	private int numTranspositions;
-	private int numFullSorts;
-	private int numCutoffs;
-	private int positionsEvaluated;
-	
 	private long endTime;
-	private int numNodesSearched;
+	private long absoluteEndTime;
+	private int  nodesSearched;
+	private int  sorts;
+	private int  totalMoves;
 
 	private static final int maxValue = 1000000;
 	private static final int minValue = -maxValue;
+	public static final int searchAborted = 69000000;
+	
+	private boolean madeNullMove;
+	
+	private final int R = 2; // reduction
 	
 	private Move bestMove;
 
@@ -37,6 +38,7 @@ public class Search {
 		generator = new MoveGenerator();
 		tTable    = new TranspositionTable();
 		MoveOrderer.clearKillers();
+		MoveOrderer.clearHistory();
 	}
 	
 	/**
@@ -50,7 +52,7 @@ public class Search {
 		this.b = b;
 		// in milliseconds
 		long timeAllowance = (long)((timeleft/20.0 + increment/2.0));
-		timeAllowance /= 4;
+		timeAllowance /= 3;
 		
 		int eval = b.getSideToMove() == Piece.WHITE ? minValue : maxValue;
 
@@ -66,53 +68,41 @@ public class Search {
 		 */
 		long startTime = System.currentTimeMillis();
 		endTime = startTime + timeAllowance;
+		absoluteEndTime = startTime + timeleft/3;
+		Move bestMoveLastIteration = bestMove;
 		int depth;
-
 		for (depth = 1; depth < 100; depth++) {
-			int currentDepthEval = search(depth, 0, minValue, maxValue);
-			eval = currentDepthEval;
-
+			eval = search(depth, 0, minValue, maxValue);
+			
+			if (System.currentTimeMillis() >= absoluteEndTime)
+				return bestMoveLastIteration;
+			
 			if (System.currentTimeMillis() > endTime)
 				break;
 			// mate score
 			if (eval >= maxValue-100)
 				break;
+			bestMoveLastIteration = bestMove;
 		}
-		storedPVNodes = 0;
-		searchedPVNodes = 0;
 		
 //		printStatistics(depth, eval, System.currentTimeMillis() - startTime);
 		return bestMove;
 	}
 	
-	/**
-	 * Prints the statistics of the search
-	 * @param depth The depth the search was searched to 
-	 * @param eval  The evaluation of the position
-	 * @param time  The amount of time the search took
-	 */
 	private void printStatistics(int depth, int eval, long time) {
 		System.out.print("info ");
 		System.out.print("depth "  + depth + " ");
         System.out.print("time "   + time + " ");
-		System.out.print("nodes "  + numNodesSearched + " ");
+		System.out.print("nodes "  + nodesSearched + " ");
 		System.out.print("pv ");
 		displayPV();
 		System.out.println("score cp "  + eval);
 
-//		System.out.println("Positions evaled: "  + positionsEvaluated);
-//		System.out.println("Number of cutoffs: " + numCutoffs);
-//		System.out.println("Number of sorts: "   + numFullSorts);
-//		System.out.println("Stored PV nodes: "   + storedPVNodes);
-//		System.out.println("Searched PV Nodes: " + searchedPVNodes);
-//		System.out.println("Transpositions: "    + numTranspositions);
-//		System.out.print("PV: ");
-		
-		System.out.println("NPS: " + (long)(numNodesSearched/(time/1000.0)));
-
 		System.out.println();
 		
-		numNodesSearched = 0;
+		System.out.println("Total Sorts: " + sorts);
+		System.out.println("Total Moves: " + totalMoves);
+		nodesSearched = 0;
 	}
 	
 	/**
@@ -124,13 +114,16 @@ public class Search {
 	 * @return The evaluation of the position after playing the best move
 	 */
 	public int search(int depth, int ply, int alpha, int beta) {
+		
+		if ((nodesSearched & 2047) == 0 && System.currentTimeMillis() >= absoluteEndTime) {
+			return searchAborted;
+		}
 		boolean foundPV = false;
 		if (depth == 0) {
 			return quiescenceSearch(alpha, beta);
-//			return evaluator.evaluatePosition(b);
 		}
 		
-		numNodesSearched++;
+		nodesSearched++;
 		
 		long key = b.getZobristKey();
 		
@@ -140,8 +133,8 @@ public class Search {
 		
 		Entry entry = tTable.lookup(key);
 		
-		if (entry != null && entry.getDepth() >= depth) {
-			numTranspositions++;
+		if (entry != null && entry.getDepth() >= depth 
+				&& Math.abs(entry.getEvaluation()) != searchAborted) {
 			if (ply == 0)
 				bestMove = entry.getBestMove();
 			
@@ -157,12 +150,29 @@ public class Search {
             	beta = Math.min(beta, storedScore);
 			
 	        if (beta <= alpha) {
-	        	numCutoffs++;
 	            return beta;
 	        }
 		}
 		
-		int side              = b.getSideToMove();
+		int side = b.getSideToMove();
+		
+		// null move pruning
+		if (!generator.isInCheck(b, b.getKingpos(side), side)
+				&& depth > 2 
+				&& ply > 0 
+				&& madeNullMove == false
+				&& !(beta - alpha > 1)
+				&& (Long.bitCount(b.getOccupiedSquares() ^ b.getBitBoard(Piece.WHITE, Piece.PAWN)
+						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
+			b.makeNullMove();
+			madeNullMove = true;
+			int score = -search(depth - 1 - R, ply + 1, -beta, -beta+1);
+        	madeNullMove = false;
+			b.unMakeNullMove();
+			
+			if (score >= beta) return beta;
+		}
+		
 	    ArrayList<Move> moves = generator.generateMoves(b, false);
 
 	    boolean hasLegalMoves = false;
@@ -170,33 +180,49 @@ public class Search {
 	    if (b.getHalfMoveClock() >= 100) 
 	    	return 0;
 	    
-	    if (ply <= 3 && entry != null && entry.getNodeType() == NodeType.EXACT) {
-	    	MoveOrderer.fullSort(b, moves, entry.getBestMove(), key, ply);
-	    } else {
-	    	MoveOrderer.partialSort(b, moves, 8, ply);
+	    if (entry != null && entry.getNodeType() == NodeType.EXACT) {
+	    	MoveOrderer.fullSort(b, moves, entry.getBestMove(), ply);
+	    	sorts++;
+	    } 
+	    else {
+	    	MoveOrderer.partialSort(b, moves, moves.size(), ply);
+	    	sorts++;
 	    }
+	    totalMoves += moves.size();
 	    
         NodeType type       = NodeType.UPPER;
         Move bestMoveInNode = moves.get(0);
 
         for (Move move : moves) {
             if (b.doMove(move)) {
+            	madeNullMove = false;
 	        	hasLegalMoves = true;
 	        	int score;
 	        	int ext = 0;
-	        	if (generator.isInCheck(b, BitBoard.getLSB(b.getBitBoard(1-side, Piece.KING)), 1-side)){
+	        	if (generator.isInCheck(b, b.getKingpos(1-side), 1-side)){
 	        		ext = 1;
 	        	}
+	        	/* Principal Variation Search:
+	        	 * Wait until a move is found that increases alpha, then search all
+	        	 * other moves with a null window, with the assumption that the leftmost
+	        	 * node that causes a alpha increase is the best move due to move ordering.
+	        	 * If this assumption is incorrect and alpha is increased further, then we
+	        	 * search the node with a full search to establish its true value.
+	        	 */
 	        	if (foundPV) {
 	        		score = -search(depth-1 + ext, ply+1, -alpha-1, -alpha);
-	        		if ((score > alpha) && (score < beta)) // finds a better move
+	        		if ((score > alpha) && (score < beta)) {// finds a better move
 	        			score = -search(depth-1 + ext, ply+1, -beta, -alpha);
+	        		}
 	        	} 
 	        	else {
 	        		score = -search(depth - 1 + ext, ply+1, -beta, -alpha);
 	        	}           
 	        	b.undoMove(move);
-	
+	        	
+	        	if (Math.abs(score) > maxValue +1000)
+	        		return searchAborted;
+	        	
 	            if( score > alpha ) {
 	            	type           = NodeType.EXACT;
 	            	alpha          = score;
@@ -207,10 +233,11 @@ public class Search {
 	            	if (beta <= score) {
 	            		if (move.getCapturedPiece() == null && move.getPromotionPiece() == Piece.NULL) {
 	            			storeKiller(ply, move);
+	            			storeHistory(depth, side, b.getPiece(move.getFromSquare()).getType(), move.getToSquare());
 	            		}
-	            		numCutoffs++;
+	 
 	            		type = NodeType.LOWER;
-	            		tTable.store(key, move, beta, depth, b.getHalfMoveClock(), type);
+	            		tTable.store(key, move, beta, depth, b.getMoveNumber(), type);
 	            		return beta; 
 	            	}
 	            	foundPV = true;
@@ -221,12 +248,12 @@ public class Search {
         
         if (!hasLegalMoves) {
 	    	// sees if the king is currently in check in this position
-	    	if (!generator.isInCheck(b, BitBoard.getLSB(b.getBitBoard(side, Piece.KING)), side)) {
+	    	if (!generator.isInCheck(b, b.getKingpos(side), side)) {
 	    		return 0;
 	    	}
 	        return minValue + ply;
         }
-        tTable.store(key, bestMoveInNode, alpha, depth, b.getHalfMoveClock(), type);
+        tTable.store(key, bestMoveInNode, alpha, depth, b.getMoveNumber(), type);
         return alpha;
 	}
 	
@@ -238,8 +265,11 @@ public class Search {
 	 * made
 	 */
 	public int quiescenceSearch(int alpha, int beta) {
-		numNodesSearched++;
-		positionsEvaluated++;
+		if ((nodesSearched & 2047) == 0 && System.currentTimeMillis() >= absoluteEndTime) {
+			return searchAborted;
+		}
+		
+		nodesSearched++;
 		int eval = evaluator.evaluatePosition(b);
 		
 		if (eval >= beta)
@@ -250,7 +280,8 @@ public class Search {
 		
 		ArrayList<Move> captures = generator.generateMoves(b, true);
 		MoveOrderer.fullSort(b, captures);
-		
+		sorts++;
+		totalMoves += captures.size();
 		for (int i = 0; i < captures.size(); i++) {
 			Move m = captures.get(i);
 			if (b.doMove(m)) {
@@ -280,6 +311,24 @@ public class Search {
 		MoveOrderer.killerTable[ply][1] = m;
 	}
 	
+	private void storeHistory(int depth, int color, int pieceType, int dest) {
+		// alternatively 2^depth or 1 << depth
+		MoveOrderer.historyTable[color][pieceType][dest] += depth * depth; 
+		
+		if (MoveOrderer.historyTable[color][pieceType][dest] >= 1024) {
+			ageHistory();
+		}
+	}
+	
+	private void ageHistory() {
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < 6; j++) {
+				for (int x = 0; x < 64; x++) {
+					MoveOrderer.historyTable[i][j][x] >>>= 3; // divided by 8
+				}
+			}
+		}
+	}
 	/**
 	 * Displays the principal variation (engine line)
 	 */
