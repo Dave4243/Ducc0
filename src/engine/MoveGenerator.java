@@ -1,8 +1,10 @@
 package engine;
 import java.util.ArrayList;
 
+import com.sun.tools.javac.util.Name.Table;
+
 public class MoveGenerator {
-	
+		
 	/**
 	 * Generates all pseudolegal moves for the position, with the option
 	 * to generate only captures
@@ -17,14 +19,23 @@ public class MoveGenerator {
 		int  source   = 0;
 		long attackBB = 0;
 		
-		long pawns = b.getBitBoard(color, Piece.PAWN);
+		long pawns   = b.getBitBoard(color, Piece.PAWN);
+		long knights = b.getBitBoard(color, Piece.KNIGHT);
+		long bishops = b.getBitBoard(color, Piece.BISHOP);
+		long rooks   = b.getBitBoard(color, Piece.ROOK);
+		long queens  = b.getBitBoard(color, Piece.QUEEN);
+		long kings   = b.getBitBoard(color, Piece.KING);
+		
+		long moveableSquares = 0xffffffffffffffffL;
+		if (onlyCaptures) moveableSquares = b.getPieceBitBoard(1-color);
+		
+		int[] promotionSourceFiles = {6, 1};
 		while (pawns != 0) {
 			source = BitBoard.getLSB(pawns);
 			long captureBB = getPawnCaptures(b, source, color);
 			long moveBB    = getPawnMoves(b, source, color);
 			// generate promotions instead of regular moves
-			if ((source >>> 3 == 6 && color == Piece.WHITE) 
-					|| (source >>> 3 == 1 && color == Piece.BLACK)) {
+			if ((source >>> 3 == promotionSourceFiles[color])) {
 				generatePromotions(result, captureBB, source, b);
 				if (!onlyCaptures) generatePromotions(result, moveBB, source, b);
 			}
@@ -35,45 +46,36 @@ public class MoveGenerator {
 			pawns &= pawns -1; 
 		}
 		
-		long knights = b.getBitBoard(color, Piece.KNIGHT);
 		while (knights != 0) {
 			source = BitBoard.getLSB(knights);
-			attackBB = getKnightAttacks(b, source, color);
-			if (onlyCaptures) attackBB &= b.getPieceBitBoard(1-color);
+			attackBB = getKnightAttacks(b, source, color) & moveableSquares;
 			generateMovesFromBitBoard(result, attackBB, source, b);
 			knights &= knights -1; 
 		}
 		
-		long bishops = b.getBitBoard(color, Piece.BISHOP);
 		while (bishops != 0) {
 			source = BitBoard.getLSB(bishops);
-			attackBB = getBishopAttacks(b, source, color);
-			if (onlyCaptures) attackBB &= b.getPieceBitBoard(1-color);
+			attackBB = getBishopAttacks(b, source, color) & moveableSquares;
 			generateMovesFromBitBoard(result, attackBB, source, b);
 			bishops &= bishops -1; 
 		}
 		
-		long rooks = b.getBitBoard(color, Piece.ROOK);
 		while (rooks != 0) {
 			source = BitBoard.getLSB(rooks);
-			attackBB = getRookAttacks(b, source, color);
-			if (onlyCaptures) attackBB &= b.getPieceBitBoard(1-color);
+			attackBB = getRookAttacks(b, source, color) & moveableSquares;
 			generateMovesFromBitBoard(result, attackBB, source, b);
 			rooks &= rooks -1; 
 		}
 		
-		long queens = b.getBitBoard(color, Piece.QUEEN);
 		while (queens != 0) {
 			source = BitBoard.getLSB(queens);
-			attackBB = getQueenAttacks(b, source, color);
-			if (onlyCaptures) attackBB &= b.getPieceBitBoard(1-color);
+			attackBB = getQueenAttacks(b, source, color) & moveableSquares;
 			generateMovesFromBitBoard(result, attackBB, source, b);
 			queens &= queens -1; 
 		}
 		
-		int kingIndex = BitBoard.getLSB(b.getBitBoard(color, Piece.KING));
-		attackBB = getKingAttacks(b, color);
-		if (onlyCaptures) attackBB &= b.getPieceBitBoard(1-color);
+		int kingIndex = BitBoard.getLSB(kings);
+		attackBB = getKingAttacks(b, color) & moveableSquares;
 		generateMovesFromBitBoard(result, attackBB, kingIndex, b);
 		
 		if (!onlyCaptures) generateCastles(result, b, color);
@@ -129,13 +131,13 @@ public class MoveGenerator {
 	
 	private void generateWhiteCastles(ArrayList<Move> result, Board b, int color) {
 		if ((b.getCastlingRights() & 0b0001) != 0 && (b.getOccupiedSquares() & BitBoard.WKMASK) == 0
-				&& !isInCheck(b, 5, Piece.WHITE) && !isInCheck(b, 6, Piece.WHITE)) {
+				&& !isInCheck(b, 5, Piece.WHITE)) {
 			Move whiteKingside = new Move(4, 6);
 			whiteKingside.setCastlingFlag(0b0001);
 			result.add(whiteKingside);
 		}
 		if ((b.getCastlingRights() & 0b0010) != 0 && (b.getOccupiedSquares() & BitBoard.WQMASK) == 0
-			&& !isInCheck(b, 2, Piece.WHITE) && !isInCheck(b, 3, Piece.WHITE)) {
+			&& !isInCheck(b, 3, Piece.WHITE)) {
 			Move whiteQueenside = new Move(4, 2);
 			whiteQueenside.setCastlingFlag(0b0010);
 			result.add(whiteQueenside);
@@ -144,14 +146,14 @@ public class MoveGenerator {
 	
 	private void generateBlackCastles(ArrayList<Move> result, Board b, int color) {
 		if ((b.getCastlingRights() & 0b0100) != 0 && (b.getOccupiedSquares() & BitBoard.BKMASK) == 0
-				&& !isInCheck(b, 61, Piece.BLACK) && !isInCheck(b, 62, Piece.BLACK)) {
+				&& !isInCheck(b, 61, Piece.BLACK)) {
 			Move blackKingside = new Move(60, 62);
 			blackKingside.setCastlingFlag(0b0100);
 			result.add(blackKingside);
 		}	
 		
 		if ((b.getCastlingRights() & 0b1000) != 0 && (b.getOccupiedSquares() & BitBoard.BQMASK) == 0
-				&& !isInCheck(b, 59, Piece.BLACK) && !isInCheck(b, 58, Piece.BLACK)) {
+				&& !isInCheck(b, 59, Piece.BLACK)) {
 			Move blackQueenside = new Move(60, 58);
 			blackQueenside.setCastlingFlag(0b1000);
 			result.add(blackQueenside);
@@ -181,26 +183,15 @@ public class MoveGenerator {
 	}
 	
 	public long getPawnMoves(Board b, int source, int pawnColor) {
-		long singlePushes = pawnColor == Piece.WHITE 
-				? 0x1L << (source + 8) : 0x1L << (source - 8);
-		long doublePushes = 0x0L;
-		singlePushes &= b.getEmptySquares();
-		if (singlePushes != 0) {
-			// double pushes
-			if (pawnColor == Piece.WHITE && source >>> 3 == 1) {
-				doublePushes = 0x1L << (source + 16);
-				doublePushes &= b.getEmptySquares();
-			}				
-			else if (pawnColor == Piece.BLACK && source >>> 3 == 6) {
-				doublePushes = 0x1L << (source - 16);
-				doublePushes &= b.getEmptySquares();
-			}
-		}
+		long empty        = b.getEmptySquares();
+		long singlePushes = (0x1L << (source + 8) >>> (pawnColor << 4)) & empty;
+		long doublePushes = (singlePushes << 8) >>> (pawnColor << 4) & empty;
+		doublePushes &= BitBoard.pawnDoublePushMasks[pawnColor];
 		return singlePushes | doublePushes;
 	}
 	
 	public long getPawnCaptures(Board b, int source, int pawnColor) {
-		long[] captureTable = pawnColor == Piece.WHITE ? Tables.whitePawnAttacks : Tables.blackPawnAttacks;
+		long[] captureTable = Tables.pawnAttacks[pawnColor];
 		long possibleCaptures = captureTable[source];
 		
 		return possibleCaptures & (b.getPieceBitBoard(1-pawnColor)| b.getEnPassantTarget());

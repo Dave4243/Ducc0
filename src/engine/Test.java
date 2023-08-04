@@ -10,37 +10,17 @@ public class Test {
 //		System.out.println(new Evaluator().evaluatePosition(b));
 		
 //		Board b = new Board();
-		Search s = new Search(b);
-		
-//		long startTime = System.nanoTime();
-		System.out.println(s.getBestMove(b, 60000, 0));
-//		System.out.println(moveGenerateTest(5, 0, b, gen));
-//		long endTime = System.nanoTime();
-		
-//		long timeSpent = endTime - startTime;
-		
-//		System.out.println("Time Taken: " + timeSpent/1000000000.0);
-//		b.toString();
-		for (int i = 0; i < 2; i++) {
-			for (int j = 0; j < 6; j++) {
-				for (int x = 0; x < 64; x++) {
-					if (MoveOrderer.historyTable[i][j][x] != 0) {
-						System.out.println(i + ", " + j + ", " + ", " + x + ": " + MoveOrderer.historyTable[i][j][x]);
-					}
-				}
-			}
-		}
+//		Search s = new Search(b);
 		
 		long startTime = System.nanoTime();
-		for (int i = 0; i < 8288; i++) {
-			ArrayList<Move> moves = gen.generateMoves(b, false);
-			MoveOrderer.fullSort(b, moves);
-		}
-			
+//		System.out.println(s.getBestMove(b, 60000, 0));
+		System.out.println(moveGenerateTest(5, 0, b, gen));
 		long endTime = System.nanoTime();
+		
 		long timeSpent = endTime - startTime;
 		
 		System.out.println("Time Taken: " + timeSpent/1000000000.0);
+//		b.toString();
 	}
 	
 	private static int moveGenerateTest(int depth, int ply, Board b, MoveGenerator gen)

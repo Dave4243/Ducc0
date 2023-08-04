@@ -32,6 +32,8 @@ public final class BitBoard {
 		0x1020408000000000L, 0x0810204080000000L, 0x0408102040800000L, 0x0204081020408000L
 	};
 	
+	public static final long[] pawnDoublePushMasks = {0xff000000L, 0xff00000000L};
+	
 	public static final long WKMASK = 0x60L;
 	public static final long WQMASK = 0xeL;
 	public static final long BKMASK = 0x6000000000000000L;
