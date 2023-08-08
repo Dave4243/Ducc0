@@ -1,21 +1,14 @@
 package engine;
 
 public class Move {
-	private int fromSquare;
-	private int toSquare;
-	private int promotionPiece;
+	private byte fromSquare;
+	private byte toSquare;
+	private byte promotionPiece;
+	private byte castlingFlag;
+	
 	private Piece capturedPiece;
 	
-	// 0000 = none
-	// 0001 = white kingside
-	// 0010 = white queenside
-	// 0100 = black kingside
-	// 1000 = black queenside
-	private int castlingFlag;
-	// In Board.java, castling rights are represented as a bitwise or of the flags:
-	// 1111 = all castling rights
-	// 1011 = all castling rights EXCEPT for black kingside
-	// etc.
+	private boolean isEnPassant;
 	
 	public Move() {
 		this.fromSquare = 0;
@@ -24,15 +17,15 @@ public class Move {
 	}
 
 	public Move(int from, int to) {
-		this.fromSquare     = from;
-		this.toSquare       = to;
+		this.fromSquare     = (byte)from;
+		this.toSquare       = (byte)to;
 		this.promotionPiece = Piece.NULL;
 	}
 	
 	public Move(int from, int to, int pp) {
-		this.fromSquare     = from;
-		this.toSquare       = to;
-		this.promotionPiece = pp;
+		this.fromSquare     = (byte)from;
+		this.toSquare       = (byte)to;
+		this.promotionPiece = (byte)pp;
 	}
 	
 	public int getFromSquare() {
@@ -47,6 +40,10 @@ public class Move {
 		return promotionPiece;
 	}
 	
+	public void setPromotionPiece(int p) {
+		this.promotionPiece = (byte)p;
+	}
+	
 	public void setCapturedPiece(Piece p) {
 		this.capturedPiece = p;
 	}
@@ -56,11 +53,19 @@ public class Move {
 	}
 	
 	public void setCastlingFlag(int f) {
-		this.castlingFlag = f;
+		this.castlingFlag = (byte)f;
 	}
 	
 	public int getCastlingFlag() {
 		return castlingFlag;
+	}
+
+	public boolean isEnPassant() {
+		return isEnPassant;
+	}
+
+	public void setEnPassant(boolean isEnPassant) {
+		this.isEnPassant = isEnPassant;
 	}
 
 	public String toString() {
