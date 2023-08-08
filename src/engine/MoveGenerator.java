@@ -1,7 +1,6 @@
 package engine;
 import java.util.ArrayList;
 
-import com.sun.tools.javac.util.Name.Table;
 
 public class MoveGenerator {
 		
@@ -30,10 +29,19 @@ public class MoveGenerator {
 		if (onlyCaptures) moveableSquares = b.getPieceBitBoard(1-color);
 		
 		int[] promotionSourceFiles = {6, 1};
+		int[] push = {-8, 8};
 		while (pawns != 0) {
 			source = BitBoard.getLSB(pawns);
 			long captureBB = getPawnCaptures(b, source, color);
 			long moveBB    = getPawnMoves(b, source, color);
+			long epTarget = b.getEnPassantTarget();
+			if ((captureBB & epTarget) != 0) {
+				Move m = new Move(source, BitBoard.getLSB(epTarget));
+				m.setEnPassant(true);
+				m.setCapturedPiece(b.getPiece(m.getToSquare() + push[color]));
+				result.add(m);
+				captureBB &= ~b.getEnPassantTarget();
+			}
 			// generate promotions instead of regular moves
 			if ((source >>> 3 == promotionSourceFiles[color])) {
 				generatePromotions(result, captureBB, source, b);
