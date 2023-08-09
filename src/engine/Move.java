@@ -102,7 +102,9 @@ public class Move {
 		
 		if ((this.fromSquare != m.fromSquare)
 			|| (this.toSquare != m.toSquare)
-			|| (this.promotionPiece != m.promotionPiece)){
+			|| (this.promotionPiece != m.promotionPiece)
+			|| (this.isEnPassant != m.isEnPassant)
+			|| (this.castlingFlag != m.castlingFlag)){
 			return false;
 		}
 		
