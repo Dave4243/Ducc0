@@ -126,6 +126,15 @@ public class UCI {
 		Move result = new Move(fromPos, toPos, promotionPiece);
 		result.setCapturedPiece(b.getPiece(toPos));
 		
+		if (p.getType() == Piece.PAWN 
+				&& (fromPos & 7) != (toPos & 7) 
+				&& b.getPiece(toPos) == null
+				&& toPos == BitBoard.getLSB(b.getEnPassantTarget())) {
+			result.setEnPassant(true);
+			int[] push = {-8, 8};
+			result.setCapturedPiece(b.getPiece(toPos + push[b.getSideToMove()]));
+		}
+		
 		if (p.getType() == Piece.KING
 				&& Math.abs((fromPos & 7) - (toPos & 7)) == 2) {
 			if (toPos == 2) result.setCastlingFlag(0b0010);
