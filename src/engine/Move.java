@@ -7,6 +7,7 @@ public class Move {
 	private byte castlingFlag;
 	
 	private Piece capturedPiece;
+	private byte  cPieceType;
 	
 	private boolean isEnPassant;
 	
@@ -46,10 +47,15 @@ public class Move {
 	
 	public void setCapturedPiece(Piece p) {
 		this.capturedPiece = p;
+		cPieceType = p != null ? (byte) (p.getType() + 1) : 0;
 	}
 	
 	public Piece getCapturedPiece() {
 		return capturedPiece;
+	}
+	
+	public int getCapturedPieceType() {
+		return cPieceType;
 	}
 	
 	public void setCastlingFlag(int f) {
@@ -96,23 +102,15 @@ public class Move {
 	}
 	
 	public boolean equals(Move m) {
-		if (m == null) {
-			return false;
+		if (m != null 
+			&& (this.fromSquare     == m.fromSquare)
+			&& (this.toSquare       == m.toSquare)
+			&& (this.promotionPiece == m.promotionPiece)
+			&& (this.isEnPassant    == m.isEnPassant)
+			&& (this.castlingFlag   == m.castlingFlag)
+			&& (this.cPieceType     == m.cPieceType)){
+			return true;
 		}
-		
-		if ((this.fromSquare != m.fromSquare)
-			|| (this.toSquare != m.toSquare)
-			|| (this.promotionPiece != m.promotionPiece)
-			|| (this.isEnPassant != m.isEnPassant)
-			|| (this.castlingFlag != m.castlingFlag)){
-			return false;
-		}
-		
-		if (this.capturedPiece == null || m.capturedPiece == null) {
-			return this.capturedPiece == m.capturedPiece;
-		}
-		
-		return (this.capturedPiece.getType() == m.capturedPiece.getType())
-				&& (this.capturedPiece.getColor() == m.capturedPiece.getColor());
+		return false;
 	}
 }
