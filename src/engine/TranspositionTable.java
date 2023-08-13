@@ -31,14 +31,15 @@ public class TranspositionTable {
 			return true;
 		}
 		
-		if (e.getNodeType() == NodeType.EXACT && type != NodeType.EXACT && e.getAge() - age > -3)
-			return false;
-		
-		if (e.getDepth() > depth && e.getHash() == zobristKey)
-			return false;
+		if (type == NodeType.EXACT 
+				|| e.getHash() != zobristKey
+				|| (e.getNodeType() == NodeType.UPPER && type == NodeType.LOWER)
+				|| e.getDepth() < depth - 2) {
+			table[index] = newEntry;
+			return true;
+		}
 
-		table[index] = newEntry;
-		return true;
+		return false;
 	}
 	
 	public Entry lookup(long zobristKey) {
@@ -54,9 +55,9 @@ public class TranspositionTable {
 	public boolean contains(long zobristKey) {
 		if (table[getIndex(zobristKey)] == null)
 			return false;
-		if (table[getIndex(zobristKey)].getHash() != zobristKey) 
-			return false;
-		return true;
+		if (table[getIndex(zobristKey)].getHash() == zobristKey) 
+			return true;
+		return false;
 	}
 	
 	public void clear() {
