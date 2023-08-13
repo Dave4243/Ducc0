@@ -7,11 +7,12 @@ import java.util.ArrayList;
  */
 public class MoveOrderer {
 	
-	private static int[] pieceValues = {100, 315, 315, 520, 950, 32000};
+	private static int[] pieceValues = {0, 100, 315, 315, 520, 950, 32000};
 	
 	public static Move[][] killerTable = new Move[100][2];
 	public static int[][][] historyTable = new int[2][6][64];
-	private static final int captureBonus = 1024;
+	private static final int captureBonus = 2048;
+	private static final int killerBonus = 2000;
 	
 	/**
 	 * 1. Hash/PV Moves (Moves deemed best from the transposition table)
@@ -29,7 +30,7 @@ public class MoveOrderer {
 				int newValue = computeValue(b, moves.get(j));
 				
 				if (isKiller(moves.get(j), ply))
-					newValue = 1023; // right after an equal capture
+					newValue = killerBonus; // right after an equal capture
 				
 				if (moves.get(j).equals(hashMove)) {
 					maxIndex = j;
@@ -74,7 +75,7 @@ public class MoveOrderer {
 				int newValue = computeValue(b, moves.get(j));
 				
 				if (isKiller(moves.get(j), ply))
-					newValue = 1023; // right after an equal capture
+					newValue = killerBonus; // right after an equal capture
 				
 				if (newValue > value) {
 					value = newValue;
@@ -101,19 +102,15 @@ public class MoveOrderer {
 			return historyTable[p.getColor()][p.getType()][m.getToSquare()];
 		}
 		
-		int promotion = 0;
-		if (m.getPromotionPiece() != Piece.NULL) {
-			promotion = pieceValues[m.getPromotionPiece()];
-		}
+		int promotion = pieceValues[m.getPromotionPiece() + 1];
 		
 		int aggressor = pieceValues[b.getPiece(m.getFromSquare()).getType()];
 
-		int victim    = 0;
-		if (m.getCapturedPiece() != null) {
-			victim = pieceValues[m.getCapturedPiece().getType()];
-		}
-		int score = victim - aggressor + promotion;
-		return (score+1) * captureBonus; // equal capture = 1024
+		int victim = pieceValues[m.getCapturedPieceType()];
+
+		int score = victim - aggressor + promotion + 1;
+		
+		return score * captureBonus; // equal capture = 1024
 	}
 	
 	public static void clearKillers() {
