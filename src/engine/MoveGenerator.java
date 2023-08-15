@@ -256,13 +256,10 @@ public class MoveGenerator {
 	}
 	
 	public long getRankMoves(Board b, int source, int pieceColor) {
-		long occupiedSquares = b.getOccupiedSquares();
-		long rankMask        = BitBoard.getRowMask(source);
-		long index           = ((rankMask & occupiedSquares) 
-				   			       * BitBoard.getFileMask(1)) >>> 58;
-		long attacks         = Tables.slidingAttackLookup[source & 7][(int)index];
-		attacks = (attacks * BitBoard.getFileMask(0)) & rankMask;
-		return attacks & ~b.getPieceBitBoard(pieceColor);
+		int rankIndex = source >>> 3 << 3;
+		long index    = ((b.getOccupiedSquares() >>> rankIndex) >>> 1) & 0x3fL; 
+		long attacks  = Tables.slidingAttackLookup[source & 7][(int)index];
+		return (attacks << rankIndex) & ~b.getPieceBitBoard(pieceColor);
 	}
 	
 	public long getFileMoves(Board b, int source, int pieceColor) {
