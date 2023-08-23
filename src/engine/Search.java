@@ -1,8 +1,6 @@
 package engine;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import engine.TranspositionTable.NodeType;
-import java.util.HashSet;
 
 /**
  * @author Dave4243
@@ -90,8 +88,7 @@ public class Search {
 			
 			bestMoveLastIteration = bestMove;
 		}
-		
-//		printStatistics(depth, eval, System.currentTimeMillis() - startTime);
+
 		return bestMove;
 	}
 	
@@ -122,6 +119,7 @@ public class Search {
 		pvLength[ply] = ply;
 		
 		boolean foundPV = false;
+		boolean pvNode = beta - alpha > 1;
 		
 		if (depth == 0) {
 			return quiescenceSearch(alpha, beta);
@@ -149,7 +147,7 @@ public class Search {
 		if (entry != null 
 				&& entry.getDepth() >= depth 
 				&& Math.abs(entry.getEvaluation()) != searchAborted
-				&& !(beta - alpha > 1)) {
+				&& !pvNode) {
 			int storedScore = entry.getEvaluation();
 			NodeType type = entry.getNodeType();
 			
@@ -170,7 +168,7 @@ public class Search {
 				&& depth > 2 
 				&& ply > 0 
 				&& madeNullMove == false
-				&& !(beta - alpha > 1)
+				&& !pvNode
 				&& (Long.bitCount(b.getOccupiedSquares() ^ b.getBitBoard(Piece.WHITE, Piece.PAWN)
 						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
 			b.makeNullMove();
@@ -194,6 +192,7 @@ public class Search {
 
         for (Move move : moves) {
             if (b.doMove(move)) {
+            	boolean isQuiet = move.getCapturedPiece() == null && move.getPromotionPiece() == Piece.NULL;
             	madeNullMove = false;
 	        	hasLegalMoves = true;
 	        	int score;
@@ -239,10 +238,13 @@ public class Search {
 	            	pvLength[ply] = pvLength[ply+1];
 	            	/***********************************************************************/
 	            	
+	            	if (isQuiet) {
+	            		storeHistory(depth, side, b.getPiece(move.getFromSquare()).getType(), move.getToSquare());
+	            	}
+	            	
 	            	if (beta <= score) {
-	            		if (move.getCapturedPiece() == null && move.getPromotionPiece() == Piece.NULL) {
+	            		if (isQuiet) {
 	            			storeKiller(ply, move);
-	            			storeHistory(depth, side, b.getPiece(move.getFromSquare()).getType(), move.getToSquare());
 	            		}
 	 
 	            		type = NodeType.LOWER;
@@ -315,15 +317,15 @@ public class Search {
 				return;
 			}
 		}
-		MoveOrderer.killerTable[ply][0] = MoveOrderer.killerTable[ply][1];
-		MoveOrderer.killerTable[ply][1] = m;
+		MoveOrderer.killerTable[ply][1] = MoveOrderer.killerTable[ply][0];
+		MoveOrderer.killerTable[ply][0] = m;
 	}
 	
 	private void storeHistory(int depth, int color, int pieceType, int dest) {
 		// alternatively 2^depth or 1 << depth
 		MoveOrderer.historyTable[color][pieceType][dest] += depth * depth; 
 		
-		if (MoveOrderer.historyTable[color][pieceType][dest] >= 1024) {
+		if (MoveOrderer.historyTable[color][pieceType][dest] >= 4096) {
 			ageHistory();
 		}
 	}
@@ -332,7 +334,7 @@ public class Search {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 6; j++) {
 				for (int x = 0; x < 64; x++) {
-					MoveOrderer.historyTable[i][j][x] >>>= 3; // divided by 8
+					MoveOrderer.historyTable[i][j][x] >>>= 2; // divided by 8
 				}
 			}
 		}
