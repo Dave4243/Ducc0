@@ -11,8 +11,8 @@ public class MoveOrderer {
 	
 	public static Move[][] killerTable = new Move[100][2];
 	public static int[][][] historyTable = new int[2][6][64];
-	private static final int captureBonus = 2048;
-	private static final int killerBonus = 2000;
+	private static final int captureBonus = 4200;
+	private static final int killerBonus = 4100;
 	
 	/**
 	 * 1. Hash/PV Moves (Moves deemed best from the transposition table)
@@ -29,8 +29,9 @@ public class MoveOrderer {
 			for (int j = i; j < moves.size(); j++) {
 				int newValue = computeValue(b, moves.get(j));
 				
-				if (isKiller(moves.get(j), ply))
-					newValue = killerBonus; // right after an equal capture
+				int killerIndex = getKillerIndex(moves.get(j), ply);
+				if (killerIndex != -1) 
+					newValue = killerBonus - killerIndex; 
 				
 				if (moves.get(j).equals(hashMove)) {
 					maxIndex = j;
@@ -65,33 +66,12 @@ public class MoveOrderer {
 		}
 	}
 	
-	// only sorts a few moves specified by the parameter sorts
-	public static void partialSort(Board b, ArrayList<Move> moves, int sorts, int ply) {
-		sorts = moves.size() < sorts ? moves.size() : sorts;
-		for (int i = 0; i < sorts; i++) {
-			int value = computeValue(b, moves.get(i));
-			int maxIndex = i;
-			for (int j = i; j < moves.size(); j++) {
-				int newValue = computeValue(b, moves.get(j));
-				
-				if (isKiller(moves.get(j), ply))
-					newValue = killerBonus; // right after an equal capture
-				
-				if (newValue > value) {
-					value = newValue;
-					maxIndex = j;
-				}
-			}
-			Move temp = moves.get(i);
-			moves.set(i, moves.get(maxIndex));
-			moves.set(maxIndex, temp);
-		}
-	}
-	
-	private static boolean isKiller(Move m, int ply) {
-		if (m.equals(killerTable[ply][0]) || m.equals(killerTable[ply][1]))
-			return true;
-		return false;
+	private static int getKillerIndex(Move m, int ply) {
+		if (m.equals(killerTable[ply][0]))
+			return 0;
+		if (m.equals(killerTable[ply][1]))
+			return 1;
+		return -1;
 	}
 	
 	private static int computeValue(Board b, Move m) {
