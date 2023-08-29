@@ -11,8 +11,7 @@ public class MoveOrderer {
 	
 	public static Move[][] killerTable = new Move[100][2];
 	public static int[][][] historyTable = new int[2][6][64];
-	private static final int captureBonus = 4200;
-	private static final int killerBonus = 4100;
+	private static final int captureBonus = 2048;
 	
 	/**
 	 * 1. Hash/PV Moves (Moves deemed best from the transposition table)
@@ -28,10 +27,6 @@ public class MoveOrderer {
 			int maxIndex = i;
 			for (int j = i; j < moves.size(); j++) {
 				int newValue = computeValue(b, moves.get(j));
-				
-				int killerIndex = getKillerIndex(moves.get(j), ply);
-				if (killerIndex != -1) 
-					newValue = killerBonus - killerIndex; 
 				
 				if (moves.get(j).equals(hashMove)) {
 					maxIndex = j;
@@ -64,14 +59,6 @@ public class MoveOrderer {
 			moves.set(i, moves.get(maxIndex));
 			moves.set(maxIndex, temp);
 		}
-	}
-	
-	private static int getKillerIndex(Move m, int ply) {
-		if (m.equals(killerTable[ply][0]))
-			return 0;
-		if (m.equals(killerTable[ply][1]))
-			return 1;
-		return -1;
 	}
 	
 	private static int computeValue(Board b, Move m) {
