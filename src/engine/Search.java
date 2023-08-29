@@ -1,6 +1,8 @@
 package engine;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import engine.TranspositionTable.NodeType;
+import java.util.HashSet;
 
 /**
  * @author Dave4243
@@ -88,7 +90,6 @@ public class Search {
 			
 			bestMoveLastIteration = bestMove;
 		}
-
 		return bestMove;
 	}
 	
@@ -121,21 +122,17 @@ public class Search {
 		boolean foundPV = false;
 		boolean pvNode = beta - alpha > 1;
 		
+		long key = b.getZobristKey();
+		
+		if (ply > 0 && (b.isRepeat(key) || b.getHalfMoveClock() >= 100)) {
+			return 0;
+		}
+		
 		if (depth == 0) {
 			return quiescenceSearch(alpha, beta);
 		}
 		
 		nodesSearched++;
-		
-		long key = b.getZobristKey();
-		
-		if (ply > 0 && b.isRepeat(key)) {
-			return 0;
-		}
-	    
-		if (b.getHalfMoveClock() >= 100) {
-	    	return 0;
-	    }
 		
 		/************************** probes the transposition table ****************************/
 		Entry entry = tTable.lookup(key);
@@ -183,7 +180,7 @@ public class Search {
 		
 	    ArrayList<Move> moves = generator.generateMoves(b, false);
 
-	    boolean hasLegalMoves = false;
+	    int moveCount = 0;
 	    
     	MoveOrderer.fullSort(b, moves, hashMove, ply);
 	    
@@ -192,30 +189,49 @@ public class Search {
 
         for (Move move : moves) {
             if (b.doMove(move)) {
-            	boolean isQuiet = move.getCapturedPiece() == null && move.getPromotionPiece() == Piece.NULL;
             	madeNullMove = false;
-	        	hasLegalMoves = true;
+	        	moveCount++;
+	        	boolean isQuiet = move.getCapturedPiece() == null && move.getPromotionPiece() == Piece.NULL;
 	        	int score;
 	        	int ext = 0;
 	        	if (generator.isInCheck(b, b.getKingpos(1-side), 1-side)){
 	        		ext = 1;
 	        	}
-	        	/* Principal Variation Search:
-	        	 * Wait until a move is found that increases alpha, then search all
-	        	 * other moves with a null window, with the assumption that the leftmost
-	        	 * node that causes a alpha increase is the best move due to move ordering.
-	        	 * If this assumption is incorrect and alpha is increased further, then we
-	        	 * search the node with a full search to establish its true value.
-	        	 */
-	        	if (foundPV) {
-	        		score = -search(depth-1 + ext, ply+1, -alpha-1, -alpha);
-	        		if ((score > alpha) && (score < beta)) {// finds a better move
-	        			score = -search(depth-1 + ext, ply+1, -beta, -alpha);
-	        		}
-	        	} 
-	        	else {
+	        	/** Principal Variation Search **/
+	        	
+	        	// search starts off assuming the first node is a PV node
+	        	if (!foundPV) {
 	        		score = -search(depth - 1 + ext, ply+1, -beta, -alpha);
-	        	}           
+	        	}
+	        	else {
+	        		// late move reduction
+	        		int reduction = 0;
+	        		if (depth >= 3
+	        				&& isQuiet
+	        				&& ext == 0
+	        				&& moveCount >= 3) {
+	        			reduction = moveCount >= 6 ? depth/3 : 1;
+	        			if (pvNode) reduction /= 2;
+	        			if (MoveOrderer.historyTable[side]
+	        				                     	[b.getPiece(move.getToSquare()).getType()]
+	        						             	[move.getToSquare()] >= 128){
+	        				reduction = 0;
+	        			}
+	        		}
+	        		
+	        		// for nodes after the first node, use a null window
+	        		score = -search(depth-1 + ext - reduction, ply+1, -alpha-1, -alpha);
+	        		
+	        		// if score ends up being above alpha AND there was a reduction
+	        		// then research with null window, but without reduction
+	        		if (score > alpha && reduction > 0)
+	        			score = -search(depth-1 + ext, ply+1, -alpha-1, -alpha);
+	        		
+	        		// at this point, if score ends up being above alpha, but less than beta,
+	        		// then the node is actually a pv node and prompts a full window research
+	        		if (score > alpha && score < beta)
+	        			score = -search(depth-1 + ext, ply+1, -beta, -alpha);
+	        	}     
 	        	b.undoMove(move);
 	        	
 	        	if (Math.abs(score) > maxValue +1000)
@@ -238,15 +254,10 @@ public class Search {
 	            	pvLength[ply] = pvLength[ply+1];
 	            	/***********************************************************************/
 	            	
-	            	if (isQuiet) {
-	            		storeHistory(depth, side, b.getPiece(move.getFromSquare()).getType(), move.getToSquare());
-	            	}
+            		if (isQuiet) 
+            			storeHistory(depth, side, b.getPiece(move.getFromSquare()).getType(), move.getToSquare());
 	            	
 	            	if (beta <= score) {
-	            		if (isQuiet) {
-	            			storeKiller(ply, move);
-	            		}
-	 
 	            		type = NodeType.LOWER;
 	            		tTable.store(key, move, beta, depth, b.getMoveNumber(), type);
 	            		return beta; 
@@ -258,7 +269,7 @@ public class Search {
         }
         
         // None of the pseudo-legal moves were legal
-        if (!hasLegalMoves) {
+        if (moveCount == 0) {
 	    	// sees if the king is currently in check in this position
 	    	if (!generator.isInCheck(b, b.getKingpos(side), side)) {
 	    		return 0; // stalemate
@@ -286,6 +297,15 @@ public class Search {
 		if (eval >= beta)
 			return beta;
 		
+		int side = b.getSideToMove();
+		// delta pruning
+		int delta = 950;
+		if ((b.getBitBoard(side, Piece.PAWN) & (0xff000000000000L >>> (side * 40))) != 0)
+			delta = 1750;
+		
+		if (eval < alpha - delta)
+			return alpha;
+		
 		if (alpha < eval)
 			alpha = eval;
 		
@@ -306,26 +326,11 @@ public class Search {
 		return alpha;
 	}
 	
-	private void storeKiller(int ply, Move m) {
-		Move[] storedKillers = MoveOrderer.killerTable[ply];
-		for (int i = 0; i < 2; i++) {
-			if (m.equals(storedKillers[i])) {
-				return;
-			}
-			if (storedKillers[i] == null) {
-				MoveOrderer.killerTable[ply][i] = m;
-				return;
-			}
-		}
-		MoveOrderer.killerTable[ply][1] = MoveOrderer.killerTable[ply][0];
-		MoveOrderer.killerTable[ply][0] = m;
-	}
-	
 	private void storeHistory(int depth, int color, int pieceType, int dest) {
 		// alternatively 2^depth or 1 << depth
 		MoveOrderer.historyTable[color][pieceType][dest] += depth * depth; 
 		
-		if (MoveOrderer.historyTable[color][pieceType][dest] >= 4096) {
+		if (MoveOrderer.historyTable[color][pieceType][dest] >= 1024) {
 			ageHistory();
 		}
 	}
@@ -334,7 +339,7 @@ public class Search {
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 6; j++) {
 				for (int x = 0; x < 64; x++) {
-					MoveOrderer.historyTable[i][j][x] >>>= 2; // divided by 8
+					MoveOrderer.historyTable[i][j][x] >>>= 3; // divided by 8
 				}
 			}
 		}
