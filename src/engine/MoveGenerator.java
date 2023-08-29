@@ -45,7 +45,7 @@ public class MoveGenerator {
 			// generate promotions instead of regular moves
 			if ((source >>> 3 == promotionSourceFiles[color])) {
 				generatePromotions(result, captureBB, source, b);
-				if (!onlyCaptures) generatePromotions(result, moveBB, source, b);
+				generatePromotions(result, moveBB, source, b);
 			}
 			else {
 				generateMovesFromBitBoard(result, captureBB, source, b);
