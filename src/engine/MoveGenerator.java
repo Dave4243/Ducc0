@@ -235,7 +235,7 @@ public class MoveGenerator {
 		return attackBitBoard & ~b.getPieceBitBoard(kingColor);
 	}
 	
-	public long getDiagonalMoves(Board b, int source, int pieceColor) {
+	public static long getDiagonalMoves(Board b, int source, int pieceColor) {
 		long occupiedSquares = b.getOccupiedSquares();
 		long diagonalMask    = BitBoard.getDiagonalMask(source);
 		long index           = ((diagonalMask & occupiedSquares)
@@ -245,7 +245,7 @@ public class MoveGenerator {
 		return attacks & ~b.getPieceBitBoard(pieceColor);
 	}
 	
-	public long getAntiDiagonalMoves(Board b, int source, int pieceColor) {
+	public static long getAntiDiagonalMoves(Board b, int source, int pieceColor) {
 		long occupiedSquares  = b.getOccupiedSquares();
 		long antiDiagonalMask = BitBoard.getAntiDiagonalMask(source);
 		long index            = ((antiDiagonalMask & occupiedSquares) 
@@ -255,14 +255,14 @@ public class MoveGenerator {
 		return attacks & ~b.getPieceBitBoard(pieceColor);
 	}
 	
-	public long getRankMoves(Board b, int source, int pieceColor) {
+	public static long getRankMoves(Board b, int source, int pieceColor) {
 		int rankIndex = source >>> 3 << 3;
 		long index    = ((b.getOccupiedSquares() >>> rankIndex) >>> 1) & 0x3fL; 
 		long attacks  = Tables.slidingAttackLookup[source & 7][(int)index];
 		return (attacks << rankIndex) & ~b.getPieceBitBoard(pieceColor);
 	}
 	
-	public long getFileMoves(Board b, int source, int pieceColor) {
+	public static long getFileMoves(Board b, int source, int pieceColor) {
 		long occupiedSquares = b.getOccupiedSquares();
 		long aFileMask       = BitBoard.getFileMask(0);
 		long index           = aFileMask & (occupiedSquares >>> (source & 7 ));
