@@ -26,7 +26,7 @@ public class Evaluator {
 	
 	private final int[] bishopPairBonus  = {20, 60};
 	
-	/////////////////////////////////////////////////////////////////////
+	/*===========================================================================================*/
 	
 	public int evaluatePosition(Board b)
 	{
@@ -44,8 +44,8 @@ public class Evaluator {
 				
 				while (bb != 0) {
 					int index = BitBoard.getLSB(bb);
-					if (i == Piece.WHITE)
-						index = (7-(index >>> 3)) * 8 + (index & 7);
+					
+					if (i == Piece.WHITE) index ^= 56;
 					
 					mgEval[i] += PSQT.mgTables[j][index];
 					egEval[i] += PSQT.egTables[j][index];
@@ -73,7 +73,7 @@ public class Evaluator {
 		long whiteQueens = b.getBitBoard(Piece.WHITE, Piece.QUEEN);
 		long blackQueens = b.getBitBoard(Piece.BLACK, Piece.QUEEN);
 		
-		// insufficient material = draw
+		/******************** insufficient material = draw ***********************/
 		if (Long.bitCount(whitePawns) == 0 && Long.bitCount(blackPawns) == 0
 				&& whiteRooks == 0 && blackRooks == 0
 				&& whiteQueens == 0 && blackQueens == 0) {
@@ -86,7 +86,7 @@ public class Evaluator {
 				return 0;
 		}
 		
-		// bishop pair
+		/************************** bishop pair bonuses ********************************/
 		if (Long.bitCount(b.getBitBoard(Piece.WHITE, Piece.BISHOP)) == 2) {
 			mgEval[Piece.WHITE] += bishopPairBonus[0];
 			egEval[Piece.WHITE] += bishopPairBonus[1];
@@ -96,7 +96,7 @@ public class Evaluator {
 			egEval[Piece.BLACK] += bishopPairBonus[1];
 		}
 		
-		// open file bonuses
+		/******************************** OPEN FILES ***************************************/
 		long openFiles = ~(BitBoard.fileFill(whitePawns) | BitBoard.fileFill(blackPawns));
 		
 		mgEval[Piece.WHITE] += Long.bitCount(whiteRooks & openFiles) * openFileBonus[0];
@@ -112,7 +112,7 @@ public class Evaluator {
 		mgEval[Piece.WHITE] += Long.bitCount(wkRowMask & openFiles) * exposedKingPenalty[0];
 		mgEval[Piece.BLACK] += Long.bitCount(bkRowMask & openFiles) * exposedKingPenalty[0];
 		
-		// semi open file stuff
+		/****************************** SEMI-OPEN FILES ***********************************/
 		long semiOpenFiles = BitBoard.fileFill(whitePawns) ^ BitBoard.fileFill(blackPawns);
 
 		mgEval[Piece.WHITE] += Long.bitCount(whiteRooks & semiOpenFiles) * semiOpenFileBonus[0];
@@ -123,7 +123,7 @@ public class Evaluator {
 		mgEval[Piece.WHITE] += Long.bitCount(wkRowMask & semiOpenFiles) * exposedKingPenalty[0]/2;
 		mgEval[Piece.BLACK] += Long.bitCount(bkRowMask & semiOpenFiles) * exposedKingPenalty[0]/2;
 		
-		// passed pawn evaluation
+		/************************** PASSED PAWN EVALUATION *******************************/
 		long whitePassers = getWhitePassers(whitePawns, blackPawns);
 		long blackPassers = getBlackPassers(whitePawns, blackPawns);
 		
@@ -155,7 +155,17 @@ public class Evaluator {
 			blackPassers &= blackPassers-1;
 		}
 		
-		// tapered evaluation
+		/*********************************** MOBILITY *****************************************/
+		for (int i = 0; i < 2; i++) {
+			int[] knightMob = getKnightMobility(b, i);
+			int[] bishopMob = getBishopMobility(b, i);
+			int[] rookMob   = getRookMobility(b, i);
+			int[] queenMob  = getQueenMobility(b, i);
+			
+			mgEval[i] += knightMob[0] + bishopMob[0] + rookMob[0] + queenMob[0];
+			egEval[i] += knightMob[1] + bishopMob[1] + rookMob[1] + queenMob[1];
+		}
+		/********************************* TAPERED EVALUATION *********************************/
 		int pawnPhase = 0;
 		int	knightPhase = 1;
 		int	bishopPhase = 1;
@@ -192,9 +202,76 @@ public class Evaluator {
 	}
 	
 	private long getBlackPassers(long wPawns, long bPawns) {
-		   long frontSpans = BitBoard.frontSpan(wPawns, Piece.WHITE);
-		   frontSpans |= ((frontSpans << 1) & ~(BitBoard.getFileMask(0)))
-		              |  ((frontSpans >>> 1) & ~(BitBoard.getFileMask(7)));
-		   return bPawns & ~frontSpans;
+	   long frontSpans = BitBoard.frontSpan(wPawns, Piece.WHITE);
+	   frontSpans |= ((frontSpans << 1) & ~(BitBoard.getFileMask(0)))
+	              |  ((frontSpans >>> 1) & ~(BitBoard.getFileMask(7)));
+	   return bPawns & ~frontSpans;
+	}
+	
+	private int[] getKnightMobility(Board b, int color) {
+		int mgMobility = 0;
+		int egMobility = 0;
+		long knightBB = b.getBitBoard(color, Piece.KNIGHT);
+		while (knightBB != 0) {
+			int source = BitBoard.getLSB(knightBB);
+			int mob = Long.bitCount(Tables.knightMoves[source] & ~b.getPieceBitBoard(color));
+			mgMobility += Tables.mgMobilityValues[0][mob];
+			egMobility += Tables.egMobilityValues[0][mob];
+			knightBB &= knightBB -1;
 		}
+		return new int[] {mgMobility, egMobility};
+	}
+	
+	private int[] getBishopMobility(Board b, int color) {
+		int mgMobility = 0;
+		int egMobility = 0;
+		long bishopBB = b.getBitBoard(color, Piece.BISHOP);
+		while (bishopBB != 0){
+			int source = BitBoard.getLSB(bishopBB);
+			long attacks = (MoveGenerator.getDiagonalMoves(b, source, color)
+				      | MoveGenerator.getAntiDiagonalMoves(b, source, color))
+					  & ~b.getPieceBitBoard(color);
+			int mob = Long.bitCount(attacks);
+			mgMobility += Tables.mgMobilityValues[1][mob];
+			egMobility += Tables.egMobilityValues[1][mob];
+			bishopBB &= bishopBB -1;
+		}
+		return new int[] {mgMobility, egMobility};
+	}
+	
+	private int[] getRookMobility(Board b, int color) {
+		int mgMobility = 0;
+		int egMobility = 0;
+		long rookBB = b.getBitBoard(color, Piece.ROOK);
+		while (rookBB != 0) {
+			int source = BitBoard.getLSB(rookBB);
+			long attacks = (MoveGenerator.getFileMoves(b, source, color)
+						| MoveGenerator.getRankMoves(b, source, color))
+						& ~b.getPieceBitBoard(color);
+			int mob = Long.bitCount(attacks);
+			mgMobility += Tables.mgMobilityValues[2][mob];
+			egMobility += Tables.egMobilityValues[2][mob];
+			rookBB &= rookBB -1;
+		}
+		return new int[] {mgMobility, egMobility};
+	}
+	
+	private int[] getQueenMobility(Board b, int color) {
+		int mgMobility = 0;
+		int egMobility = 0;
+		long queenBB = b.getBitBoard(color, Piece.QUEEN);
+		while (queenBB != 0) {
+			int source = BitBoard.getLSB(queenBB);
+			long attacks = (MoveGenerator.getFileMoves(b, source, color)
+					| MoveGenerator.getRankMoves(b, source, color)
+					| MoveGenerator.getDiagonalMoves(b, source, color)
+				    | MoveGenerator.getAntiDiagonalMoves(b, source, color))
+					& ~b.getPieceBitBoard(color);
+			int mob = Long.bitCount(attacks);
+			mgMobility += Tables.mgMobilityValues[3][mob];
+			egMobility += Tables.egMobilityValues[3][mob];
+			queenBB &= queenBB -1;
+		}
+		return new int[] {mgMobility, egMobility};
+	}
 }
