@@ -11,7 +11,7 @@ public class MoveOrderer {
 	
 	public static Move[][] killerTable = new Move[100][2];
 	public static int[][][] historyTable = new int[2][6][64];
-	private static final int captureBonus = 2048;
+	private static final int captureBonus = 65536;
 	
 	/**
 	 * 1. Hash/PV Moves (Moves deemed best from the transposition table)
@@ -75,9 +75,11 @@ public class MoveOrderer {
 
 		int victim = pieceValues[m.getCapturedPieceType()];
 
-		int score = victim - aggressor + promotion + 1;
+		int score = victim - aggressor + promotion;
 		
-		return score * captureBonus; // equal capture = 1024
+		if (score >= 0) score += captureBonus;
+		
+		return score; // equal capture = 65536
 	}
 	
 	public static void clearKillers() {
