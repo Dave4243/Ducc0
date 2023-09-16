@@ -80,14 +80,33 @@ public class Tables {
     
     // 8 = one of the 8 from files
     // 64 = 2^6 different arrangements of bits for 6 squares on the first rank
-    public static long[][] slidingAttackLookup = new long[8][64];
-  
+    public static final long[][] slidingAttackLookup = new long[8][64];
+    
+    public static final int[][] mgMobilityValues = {
+    	{-30, -15, -8, -4, 0, 8, 16, 32, 32},
+    	{-30, -20, -10, 0, 5, 10, 15, 20, 25, 25, 30, 30, 30, 35},
+    	{-32, -24, -16, -8, 0, 4, 16, 17, 18, 19, 20, 28, 36, 45, 50},
+    	{-24, -22, -20, -18, -15, -10, -8, -4, 0, 4, 8, 12, 16, 18,
+    	 18, 20, 20, 22, 22, 24, 24, 26, 26, 32, 32, 32, 32, 32} 
+    };
+    
+    // stuck pieces in the endgame are MUCH worse
+    // too much mobility might be bad in the case of stopping/protecting pawns and such
+    public static final int[][] egMobilityValues = {
+    	{-80, -35, 0, 4, 16, 34, 24, 24, 18},
+    	{-90, -50, -10, -5, 0, 5, 10, 15, 20, 25, 35, 30, 25, 22},
+    	{-150, -75, -32, -12, -4, 0, 8, 17, 22, 24, 24, 22, 20, 20, 14},
+    	{-300, -200, -100, -50, -30, -30, -20, -15, -8, 0, 10, 12, 16, 18,
+    	 18, 20, 20, 22, 22, 24, 24, 26, 32, 30, 24, 24, 24, 22} 
+    };
+    
+    public static final int[][] lmrTable = new int[64][64];
+    
     /**
-     * Does some stuff (scuffed sliding piece attack calculation)
-     * Efficiency literally does not matter since this is for initialization
-     * Method is called once at the start of the program
+     * Initializes static fields
      */
-    public static void computeFirstRankAttacks() {
+    static {
+    	/**************************** FIRST RANK ATTACK TABLE **************************/
     	// i represents the file the piece is on
     	for (int i = 0; i < 8; i++) {
     		long mask = ~(0x1L << i); // masks for the current piece
@@ -112,25 +131,18 @@ public class Tables {
     			slidingAttackLookup[i][j] = result;
     		}
     	}
+    	
+    	/************************** LATE MOVE REDUCTIONS ***************************/
+    	
+    	// using log formula (x + ln(depth) + ln(moves played)/y) where x and y are doubles
+    	for (int depth = 0; depth < 64; depth++) {
+    		for (int played = 0; played < 64; played++) {
+    			lmrTable[depth][played] = (int)(0.75 + Math.log(depth) * Math.log(played)/2.5);
+    			lmrTable[depth][played] = Math.max(0, lmrTable[depth][played]);
+    		}
+    	}
+    	lmrTable[0][0] = 0;
     }
-    
-    public static int[][] mgMobilityValues = {
-    	{-30, -15, -8, -4, 0, 8, 16, 32, 32},
-    	{-30, -20, -10, 0, 5, 10, 15, 20, 25, 25, 30, 30, 30, 35},
-    	{-32, -24, -16, -8, 0, 4, 16, 17, 18, 19, 20, 28, 36, 45, 50},
-    	{-24, -22, -20, -18, -15, -10, -8, -4, 0, 4, 8, 12, 16, 18,
-    	 18, 20, 20, 22, 22, 24, 24, 26, 26, 32, 32, 32, 32, 32} 
-    };
-    
-    // stuck pieces in the endgame are MUCH worse
-    // too much mobility might be bad in the case of stopping/protecting pawns and such
-    public static int[][] egMobilityValues = {
-    	{-80, -35, 0, 4, 16, 34, 24, 24, 18},
-    	{-90, -50, -10, -5, 0, 5, 10, 15, 20, 25, 35, 30, 25, 22},
-    	{-150, -75, -32, -12, -4, 0, 8, 17, 22, 24, 24, 22, 20, 20, 14},
-    	{-300, -200, -100, -50, -30, -30, -20, -15, -8, 0, 10, 12, 16, 18,
-    	 18, 20, 20, 22, 22, 24, 24, 26, 32, 30, 24, 24, 24, 22} 
-    };
     
     private Tables() {}
 }
