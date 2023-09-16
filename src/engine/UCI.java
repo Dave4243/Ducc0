@@ -9,10 +9,10 @@ public class UCI {
 	private static void initialize() {
 		board  = new Board();
 		search = new Search(board);
+		MoveOrderer.clearHistory();
 	}
 
 	public static void main(String[] args) {
-		Tables.computeFirstRankAttacks();
 		Scanner s = new Scanner(System.in);
 		String input = "";
 		while (!input.equals("quit")) {
