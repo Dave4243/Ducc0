@@ -27,6 +27,8 @@ public class Search {
 	
 	private int[] pvLength;
 	private Move[][] pvTable;
+	private static final Move nullMove = new Move(0,0);
+	private SearchStack[] ss;
 
 	public Search(Board b) {
 		this.b = b;
@@ -34,11 +36,19 @@ public class Search {
 		evaluator = new Evaluator();
 		generator = new MoveGenerator();
 		tTable    = new TranspositionTable();
-		MoveOrderer.clearKillers();
 		MoveOrderer.clearHistory();
 		
+		ss = new SearchStack[maxDepth];
+		for (int i = 0; i < maxDepth; i++) {
+			ss[i] = new SearchStack();
+		}
 		pvLength = new int[maxDepth];
 		pvTable  = new Move[maxDepth][maxDepth];
+	}
+	
+	class SearchStack {
+		Move currentMove;
+		int staticEval;
 	}
 	
 	/**
@@ -85,6 +95,7 @@ public class Search {
 			if (eval >= maxValue - maxDepth)
 				break;
 		}
+
 		return pvTable[0][0];
 	}
 	
@@ -129,6 +140,7 @@ public class Search {
 		}
 		
 		nodesSearched++;
+
 		
 		/************************** probes the transposition table ****************************/
 		Entry entry = tTable.lookup(key);
@@ -153,12 +165,12 @@ public class Search {
 		/**************************************************************************************/
 
 		int side = b.getSideToMove();
-		
+
 		/****************************** null move pruning *************************************/
 		// don't prune at pv nodes, at possible zugzwang nodes, if pruning descends into qs
 		// also don't make consecutive null moves
 		if (!generator.isInCheck(b, b.getKingpos(side), side)
-				&& depth > 2 
+				&& depth > 2
 				&& ply > 0 
 				&& madeNullMove == false
 				&& !pvNode
@@ -166,11 +178,16 @@ public class Search {
 						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
 			b.makeNullMove();
 			madeNullMove = true;
+			ss[ply].currentMove = nullMove;
 			int score = -search(depth - 1 - 2, ply + 1, -beta, -beta+1); // depth reduction of 2
         	madeNullMove = false;
 			b.unMakeNullMove();
 			
-			if (score >= beta) return beta;
+			if (score >= beta) {
+				if (score >= maxValue - 100)
+					return beta;
+				return score;
+			}
 		}
 		/*************************************************************************************/
 		
@@ -178,7 +195,7 @@ public class Search {
     	MoveOrderer.fullSort(b, moves, hashMove, ply);
 	    
         NodeType type       = NodeType.UPPER;
-        Move bestMoveInNode = moves.get(0);
+        Move bestMove = moves.get(0);
         
         int bestScore       = minValue;
 	    int moveCount       = 0;
@@ -188,6 +205,7 @@ public class Search {
             	b.undoMove(move);
             	continue;
             }
+            ss[ply].currentMove = move;
         	madeNullMove = false;
         	moveCount++;
         	boolean isQuiet = move.getCapturedPiece() == null && move.getPromotionPiece() == Piece.NULL;
@@ -213,7 +231,7 @@ public class Search {
         			reduction = moveCount >= 6 ? depth/3 : 1;
         			if (pvNode) reduction /= 2;
         			if (MoveOrderer.historyTable[side]
-        				                     	[b.getPiece(move.getToSquare()).getType()]
+        				                     	[move.getFromSquare()]
         						             	[move.getToSquare()] >= 128){
         				reduction = 0;
         			}
@@ -239,7 +257,7 @@ public class Search {
         	
             if (score > bestScore) {
             	bestScore      = score;
-            	bestMoveInNode = move;
+            	bestMove = move;
             	
             	/************************ Stores PV in PV table ************************/
             	pvTable[ply][ply] = move;
@@ -255,10 +273,10 @@ public class Search {
 	            	type  = NodeType.EXACT;
 	            	alpha = score;
 	            	foundPV = true;
-
-	        		if (isQuiet) 
-	        			storeHistory(depth, side, b.getPiece(move.getFromSquare()).getType(), move.getToSquare());
 	            	
+	        		if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) 
+            			storeHistory(depth, side, move.getFromSquare(), move.getToSquare());
+	        		
 	            	if (score >= beta) {
 	            		type = NodeType.LOWER;
 	            		tTable.store(key, move, score, depth, b.getMoveNumber(), type);
@@ -276,7 +294,7 @@ public class Search {
 	    	}
 	        return minValue + ply; // checkmate
         }
-        tTable.store(key, bestMoveInNode, bestScore, depth, b.getMoveNumber(), type);
+        tTable.store(key, bestMove, bestScore, depth, b.getMoveNumber(), type);
         return bestScore;
 	}
 	
@@ -292,7 +310,7 @@ public class Search {
 		}
 		
 		nodesSearched++;
-		int staticEvaluation = evaluator.evaluatePosition(b);
+		int staticEvaluation = evaluator.evaluatePosition(b); // evaluates
 		
 		if (staticEvaluation >= beta)
 			return staticEvaluation;
@@ -335,18 +353,18 @@ public class Search {
 		return bestScore;
 	}
 	
-	private void storeHistory(int depth, int color, int pieceType, int dest) {
+	private void storeHistory(int depth, int color, int source, int dest) {
 		// alternatively 2^depth or 1 << depth
-		MoveOrderer.historyTable[color][pieceType][dest] += depth * depth; 
+		MoveOrderer.historyTable[color][source][dest] += depth * depth; 
 		
-		if (MoveOrderer.historyTable[color][pieceType][dest] >= 1024) {
+		if (MoveOrderer.historyTable[color][source][dest] >= 1024) {
 			ageHistory();
 		}
 	}
 	
 	private void ageHistory() {
 		for (int i = 0; i < 2; i++) {
-			for (int j = 0; j < 6; j++) {
+			for (int j = 0; j < 64; j++) {
 				for (int x = 0; x < 64; x++) {
 					MoveOrderer.historyTable[i][j][x] >>>= 3; // divided by 8
 				}
