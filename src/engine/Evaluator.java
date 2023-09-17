@@ -25,7 +25,7 @@ public class Evaluator {
 	private final int[][] kingTropismValues = {{0,0}, {2,1}, {1,1}, {4,2}, {8,4}, {0,0}};
 	
 	private final int[] bishopPairBonus  = {20, 60};
-	
+	private final int tempoBonus = 20;
 	/*===========================================================================================*/
 	
 	public int evaluatePosition(Board b)
@@ -165,6 +165,11 @@ public class Evaluator {
 			mgEval[i] += knightMob[0] + bishopMob[0] + rookMob[0] + queenMob[0];
 			egEval[i] += knightMob[1] + bishopMob[1] + rookMob[1] + queenMob[1];
 		}
+		
+		/************************************ TEMPO *****************************************/
+		mgEval[b.getSideToMove()] += tempoBonus;
+		egEval[b.getSideToMove()] += tempoBonus;
+		
 		/********************************* TAPERED EVALUATION *********************************/
 		int pawnPhase = 0;
 		int	knightPhase = 1;
