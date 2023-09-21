@@ -1,6 +1,4 @@
 package engine;
-import java.util.ArrayList;
-
 
 public class MoveGenerator {
 		
@@ -11,8 +9,8 @@ public class MoveGenerator {
 	 * @param onlyCaptures Whether to generate only captures or not
 	 * @return A list of pseudolegal moves for the position
 	 */
-	public ArrayList<Move> generateMoves(Board b, boolean onlyCaptures) {
-		ArrayList<Move> result = new ArrayList<Move>();
+	public MoveList generateMoves(Board b, boolean onlyCaptures) {
+		MoveList result = new MoveList();
 		int color = b.getSideToMove();
 		
 		int  source   = 0;
@@ -87,11 +85,11 @@ public class MoveGenerator {
 		generateMovesFromBitBoard(result, attackBB, kingIndex, b);
 		
 		if (!onlyCaptures) generateCastles(result, b, color);
-
+		
 		return result;
 	}
 
-	private void generateMovesFromBitBoard(ArrayList<Move> result, long attackBitBoard, int source, Board b) {
+	private void generateMovesFromBitBoard(MoveList result, long attackBitBoard, int source, Board b) {
 		while (attackBitBoard != 0) {
 			int dest = BitBoard.getLSB(attackBitBoard);
 			Move m = new Move(source, dest);
@@ -101,7 +99,7 @@ public class MoveGenerator {
 		}
 	}
 	
-	private void generatePromotions(ArrayList<Move> result, long attackBitBoard, int source, Board b) {
+	private void generatePromotions(MoveList result, long attackBitBoard, int source, Board b) {
 		while (attackBitBoard != 0) {
 			int dest = BitBoard.getLSB(attackBitBoard);
 			Move m1 = new Move(source, dest, 4);
@@ -121,7 +119,7 @@ public class MoveGenerator {
 		}
 	}
 	
-	private void generateCastles(ArrayList<Move> result, Board b, int color) {
+	private void generateCastles(MoveList result, Board b, int color) {
 		int mask      = color == Piece.WHITE ? 0b0011 : 0b1100;
 		int kingIndex = color == Piece.WHITE ? 4 : 60;
 		
@@ -137,7 +135,7 @@ public class MoveGenerator {
 		else                      generateBlackCastles(result, b, color);
 	}
 	
-	private void generateWhiteCastles(ArrayList<Move> result, Board b, int color) {
+	private void generateWhiteCastles(MoveList result, Board b, int color) {
 		if ((b.getCastlingRights() & 0b0001) != 0 && (b.getOccupiedSquares() & BitBoard.WKMASK) == 0
 				&& !isInCheck(b, 5, Piece.WHITE)) {
 			Move whiteKingside = new Move(4, 6);
@@ -152,7 +150,7 @@ public class MoveGenerator {
 		}	
 	}
 	
-	private void generateBlackCastles(ArrayList<Move> result, Board b, int color) {
+	private void generateBlackCastles(MoveList result, Board b, int color) {
 		if ((b.getCastlingRights() & 0b0100) != 0 && (b.getOccupiedSquares() & BitBoard.BKMASK) == 0
 				&& !isInCheck(b, 61, Piece.BLACK)) {
 			Move blackKingside = new Move(60, 62);

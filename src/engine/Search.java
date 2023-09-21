@@ -135,7 +135,7 @@ public class Search {
 			return 0;
 		}
 		
-		if (depth == 0) {
+		if (depth <= 0) {
 			return quiescenceSearch(alpha, beta);
 		}
 		
@@ -191,16 +191,18 @@ public class Search {
 		}
 		/*************************************************************************************/
 		
-	    ArrayList<Move> moves = generator.generateMoves(b, false);
-    	MoveOrderer.fullSort(b, moves, hashMove, ply);
+	    MoveList moveList = generator.generateMoves(b, false);
+	    MoveOrderer.scoreMoves(moveList, b, hashMove, ply);
 	    
-        NodeType type       = NodeType.UPPER;
-        Move bestMove = moves.get(0);
+        NodeType type = NodeType.UPPER;
+        Move bestMove = moveList.moves[0];
         
-        int bestScore       = minValue;
-	    int moveCount       = 0;
+        int bestScore = minValue;
+        int moveCount = 0;
         
-        for (Move move : moves) {
+        for (int i = 0; i < moveList.size(); i++) {
+        	MoveOrderer.sortNext(moveList, i);
+        	Move move = moveList.moves[i];
             if (!b.doMove(move)) {
             	b.undoMove(move);
             	continue;
@@ -208,7 +210,9 @@ public class Search {
             ss[ply].currentMove = move;
         	madeNullMove = false;
         	moveCount++;
-        	boolean isQuiet = move.getCapturedPiece() == null && move.getPromotionPiece() == Piece.NULL;
+        	boolean isQuiet = isQuiet(move);
+        	if (isQuiet) moveList.addQuiet(move);
+        	
         	int score;
         	int ext = 0;
         	if (generator.isInCheck(b, b.getKingpos(1-side), 1-side)){
@@ -235,6 +239,7 @@ public class Search {
         						             	[move.getToSquare()] >= 128){
         				reduction = 0;
         			}
+        			
         		}
         		
         		// for nodes after the first node, use a null window
@@ -273,11 +278,11 @@ public class Search {
 	            	type  = NodeType.EXACT;
 	            	alpha = score;
 	            	foundPV = true;
-	            	
-	        		if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) 
-            			storeHistory(depth, side, move.getFromSquare(), move.getToSquare());
 	        		
 	            	if (score >= beta) {
+		        		if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) {
+		        			updateQuietHistory(moveList, depth, side);
+		        		}
 	            		type = NodeType.LOWER;
 	            		tTable.store(key, move, score, depth, b.getMoveNumber(), type);
 	            		return score; 
@@ -329,11 +334,13 @@ public class Search {
 		if (staticEvaluation > alpha)
 			alpha = staticEvaluation;
 		
-		ArrayList<Move> captures = generator.generateMoves(b, true);
-		MoveOrderer.fullSort(b, captures);
+	    MoveList moveList = generator.generateMoves(b, true);
+	    MoveOrderer.scoreMoves(moveList, b, null, -1);
 		
 		int bestScore = staticEvaluation;
-		for (Move move : captures) {
+		for (int i = 0; i < moveList.size(); i++) {
+			MoveOrderer.sortNext(moveList, i);
+			Move move = moveList.moves[i];
 			if (!b.doMove(move)) {
 				b.undoMove(move);
 				continue;
@@ -353,23 +360,47 @@ public class Search {
 		return bestScore;
 	}
 	
-	private void storeHistory(int depth, int color, int source, int dest) {
-		// alternatively 2^depth or 1 << depth
-		MoveOrderer.historyTable[color][source][dest] += depth * depth; 
+//	private void storeHistory(int depth, int color, int source, int dest) {
+//		// alternatively 2^depth or 1 << depth
+//		MoveOrderer.historyTable[color][source][dest] += depth * depth; 
+//		
+//		if (MoveOrderer.historyTable[color][source][dest] >= 1024) {
+//			ageHistory();
+//		}
+//	}
+//	
+//	private void ageHistory() {
+//		for (int i = 0; i < 2; i++) {
+//			for (int j = 0; j < 64; j++) {
+//				for (int x = 0; x < 64; x++) {
+//					MoveOrderer.historyTable[i][j][x] >>>= 3; // divided by 8
+//				}
+//			}
+//		}
+//	}
+	
+	private void updateQuietHistory(MoveList ml, int depth, int side) {
 		
-		if (MoveOrderer.historyTable[color][source][dest] >= 1024) {
-			ageHistory();
+		for (int i = 0; i < ml.numQuiets(); i++) {
+			Move m = ml.quietsPlayed[i];
+			updateHistory(m.getFromSquare(), m.getToSquare(), side, depth, i == ml.numQuiets()-1);
+
 		}
 	}
 	
-	private void ageHistory() {
-		for (int i = 0; i < 2; i++) {
-			for (int j = 0; j < 64; j++) {
-				for (int x = 0; x < 64; x++) {
-					MoveOrderer.historyTable[i][j][x] >>>= 3; // divided by 8
-				}
-			}
+	private void updateHistory(int from, int to, int side, int depth, boolean good) {
+		int entry = MoveOrderer.historyTable[side][from][to];
+		int bonus = depth * depth;
+		bonus = good ? bonus : -bonus;
+		
+		MoveOrderer.historyTable[side][from][to] = entry + bonus - entry * Math.abs(bonus)/16384;
+	}
+	
+	private boolean isQuiet(Move m) {
+		if (m.getCapturedPiece() != null || m.getPromotionPiece() != Piece.NULL) {
+			return false;
 		}
+		return true;
 	}
 	
 	/**
