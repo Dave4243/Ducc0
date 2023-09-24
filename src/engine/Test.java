@@ -1,5 +1,4 @@
 package engine;
-import java.util.ArrayList;
 
 public class Test {
 	
@@ -16,7 +15,14 @@ public class Test {
 		long endTime = System.nanoTime();
 		
 		long timeSpent = endTime - startTime;
+		System.out.println(timeSpent/1000000000.0);
 		
+		for (int[] i : Tables.lmrTable) {
+			for (int j : i) {
+				System.out.print(j + " ");
+			}
+			System.out.println();
+		}
 	}
 	
 	private static int moveGenerateTest(int depth, int ply, Board b, MoveGenerator gen)
@@ -24,12 +30,14 @@ public class Test {
 		if (depth == 0)
 			return 1;
 
-		ArrayList<Move> moves = gen.generateMoves(b, false);
+		
+		MoveList moveList = gen.generateMoves(b, false);
 		
 		int totalPositions= 0;
 		int positionsForMove = 0;
 		
-		for (Move m : moves){
+		for (int i = 0; i < moveList.size(); i++){
+			Move m = moveList.moves[i];
 			if (b.doMove(m)) {
 //				if (b.getZobristKey() != Zobrist.getKey(b)) {
 //					System.out.println("ERRORRR");

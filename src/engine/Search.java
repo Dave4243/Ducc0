@@ -122,10 +122,7 @@ public class Search {
 		}
 		
 		pvLength[ply] = ply;
-		
-		boolean foundPV = false;
 		boolean pvNode = beta - alpha > 1;
-		
 		long key = b.getZobristKey();
 		
 		if (ply > 0 && (b.isRepeat(key) || b.getHalfMoveClock() >= 100)) {
@@ -219,7 +216,7 @@ public class Search {
         	/********************** Principal Variation Search ******************************/
         	
         	// search starts off assuming the first node is a PV node
-        	if (!foundPV) {
+        	if (moveCount == 1) {
         		score = -search(depth - 1 + ext, ply+1, -beta, -alpha);
         	}
         	else {
@@ -274,8 +271,7 @@ public class Search {
             	if (score > alpha) {
 	            	type  = NodeType.EXACT;
 	            	alpha = score;
-	            	foundPV = true;
-	        		
+
 	            	if (score >= beta) {
 		        		if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) {
 		        			updateQuietHistory(moveList, depth, side);
