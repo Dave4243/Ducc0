@@ -1,11 +1,8 @@
 package engine;
-import java.util.ArrayList;
 import engine.TranspositionTable.NodeType;
 
 /**
  * @author Dave4243
- * The ChessEngine.java class searches through moves
- * and finds the best move.
  */
 public class Search {
 	private Evaluator          evaluator;
@@ -135,7 +132,7 @@ public class Search {
 			return 0;
 		}
 		
-		if (depth <= 0) {
+		if (depth == 0) {
 			return quiescenceSearch(alpha, beta);
 		}
 		
@@ -232,14 +229,14 @@ public class Search {
         				&& isQuiet
         				&& ext == 0
         				&& moveCount >= 3) {
-        			reduction = moveCount >= 6 ? depth/3 : 1;
-        			if (pvNode) reduction /= 2;
-        			if (MoveOrderer.historyTable[side]
-        				                     	[move.getFromSquare()]
-        						             	[move.getToSquare()] >= 128){
-        				reduction = 0;
-        			}
-        			
+        			reduction = Tables.lmrTable[Math.min(depth, 63)][Math.min(moveCount, 63)];
+        			reduction -= Math.max(-2, 
+        					Math.min(2, MoveOrderer.historyTable[side]
+        								[move.getFromSquare()]
+        								[move.getToSquare()]/5000)
+        					);
+        			if (!pvNode) reduction += 1;
+        			reduction = Math.min(depth-2, Math.max(reduction, 0));
         		}
         		
         		// for nodes after the first node, use a null window
@@ -359,25 +356,6 @@ public class Search {
 		}
 		return bestScore;
 	}
-	
-//	private void storeHistory(int depth, int color, int source, int dest) {
-//		// alternatively 2^depth or 1 << depth
-//		MoveOrderer.historyTable[color][source][dest] += depth * depth; 
-//		
-//		if (MoveOrderer.historyTable[color][source][dest] >= 1024) {
-//			ageHistory();
-//		}
-//	}
-//	
-//	private void ageHistory() {
-//		for (int i = 0; i < 2; i++) {
-//			for (int j = 0; j < 64; j++) {
-//				for (int x = 0; x < 64; x++) {
-//					MoveOrderer.historyTable[i][j][x] >>>= 3; // divided by 8
-//				}
-//			}
-//		}
-//	}
 	
 	private void updateQuietHistory(MoveList ml, int depth, int side) {
 		
