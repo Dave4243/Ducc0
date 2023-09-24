@@ -22,24 +22,10 @@ public class TranspositionTable {
 	 * @param type
 	 * @return True if the new entry was stored in the table, false if it wasn't
 	 */
-	public boolean store(long zobristKey, Move bestMove, int eval, int depth, int age, NodeType type) {
+	public void store(long zobristKey, Move bestMove, int eval, int depth, int age, NodeType type) {
 		int index = getIndex(zobristKey);
-		Entry e   = table[index];
 		Entry newEntry = new Entry(zobristKey, bestMove, eval, depth, age, type);
-		if (e == null) {
-			table[index] = newEntry;
-			return true;
-		}
-		
-		if (type == NodeType.EXACT 
-				|| e.getHash() != zobristKey
-				|| (e.getNodeType() == NodeType.UPPER && type == NodeType.LOWER)
-				|| e.getDepth() < depth - 2) {
-			table[index] = newEntry;
-			return true;
-		}
-
-		return false;
+		table[index] = newEntry;
 	}
 	
 	public Entry lookup(long zobristKey) {
