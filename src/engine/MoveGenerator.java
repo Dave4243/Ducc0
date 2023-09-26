@@ -131,35 +131,47 @@ public class MoveGenerator {
 		if (isInCheck(b, kingIndex, color))
 			return;
 		
-		if (color == Piece.WHITE) generateWhiteCastles(result, b, color);
-		else                      generateBlackCastles(result, b, color);
+		if (color == Piece.WHITE) generateWhiteCastles(result, b);
+		else                      generateBlackCastles(result, b);
 	}
 	
-	private void generateWhiteCastles(MoveList result, Board b, int color) {
-		if ((b.getCastlingRights() & 0b0001) != 0 && (b.getOccupiedSquares() & BitBoard.WKMASK) == 0
+	private void generateWhiteCastles(MoveList result, Board b) {
+		if ((b.getCastlingRights() & 0b0001) != 0 
+				&& (b.getOccupiedSquares() & BitBoard.WKMASK) == 0
+				&& (b.getBitBoard(Piece.WHITE, Piece.ROOK) & 0x80L) != 0 
 				&& !isInCheck(b, 5, Piece.WHITE)) {
+			
 			Move whiteKingside = new Move(4, 6);
 			whiteKingside.setCastlingFlag(0b0001);
 			result.add(whiteKingside);
 		}
-		if ((b.getCastlingRights() & 0b0010) != 0 && (b.getOccupiedSquares() & BitBoard.WQMASK) == 0
-			&& !isInCheck(b, 3, Piece.WHITE)) {
+		if ((b.getCastlingRights() & 0b0010) != 0 
+				&& (b.getOccupiedSquares() & BitBoard.WQMASK) == 0
+				&& (b.getBitBoard(Piece.WHITE, Piece.ROOK) & 0x1L) != 0 
+				&& !isInCheck(b, 3, Piece.WHITE)) {
+			
 			Move whiteQueenside = new Move(4, 2);
 			whiteQueenside.setCastlingFlag(0b0010);
 			result.add(whiteQueenside);
 		}	
 	}
 	
-	private void generateBlackCastles(MoveList result, Board b, int color) {
-		if ((b.getCastlingRights() & 0b0100) != 0 && (b.getOccupiedSquares() & BitBoard.BKMASK) == 0
+	private void generateBlackCastles(MoveList result, Board b) {
+		if ((b.getCastlingRights() & 0b0100) != 0 
+				&& (b.getOccupiedSquares() & BitBoard.BKMASK) == 0
+				&& (b.getBitBoard(Piece.BLACK, Piece.ROOK) & 0x8000000000000000L) != 0 
 				&& !isInCheck(b, 61, Piece.BLACK)) {
+			
 			Move blackKingside = new Move(60, 62);
 			blackKingside.setCastlingFlag(0b0100);
 			result.add(blackKingside);
 		}	
 		
-		if ((b.getCastlingRights() & 0b1000) != 0 && (b.getOccupiedSquares() & BitBoard.BQMASK) == 0
+		if ((b.getCastlingRights() & 0b1000) != 0 
+				&& (b.getOccupiedSquares() & BitBoard.BQMASK) == 0
+				&& (b.getBitBoard(Piece.BLACK, Piece.ROOK) & 0x100000000000000L) != 0 
 				&& !isInCheck(b, 59, Piece.BLACK)) {
+			
 			Move blackQueenside = new Move(60, 58);
 			blackQueenside.setCastlingFlag(0b1000);
 			result.add(blackQueenside);
