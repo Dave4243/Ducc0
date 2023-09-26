@@ -9,7 +9,6 @@ public class MoveOrderer {
 	private static int[] pieceValues = {0, 100, 315, 315, 520, 950, 32000};
 	
 	public static int[][][] historyTable = new int[2][64][64];
-	private static final int captureBonus = 65536;
 	
 	/**
 	 * 1. Hash/PV Moves (Moves deemed best from the transposition table)
@@ -60,12 +59,7 @@ public class MoveOrderer {
 
 		int victim = pieceValues[m.getCapturedPieceType()];
 
-		int score = victim - aggressor + promotion;
-		
-		if (score >= 0) score += captureBonus;
-		else score -= captureBonus;
-		
-		return score; // equal capture = 65536
+		return (victim + promotion)* 1000 - aggressor;
 	}
 	
 	public static void clearHistory() {
