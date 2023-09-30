@@ -20,8 +20,6 @@ public class Search {
 	
 	private static final int maxDepth = 100;
 	
-	private boolean madeNullMove;
-	
 	private int[] pvLength;
 	private Move[][] pvTable;
 	private static final Move nullMove = new Move(0,0);
@@ -63,24 +61,23 @@ public class Search {
 		
 		int eval = b.getSideToMove() == Piece.WHITE ? minValue : maxValue;
 
-		/*
-		 ************************************************************************
-		 * Iterative Deepening:                                                 *
-		 * Start with depth 1 search and increment depth until time runs out.   *
-		 * The best sequence of moves from the previous search is searched      *
-		 * first in the next iteration, which helps with pruning. This sequence *
-		 * is stored in the transposition table as the best moves from each PV  *
-		 * position.                                                            *
-		 ************************************************************************  
-		 */
+
 		long startTime = System.currentTimeMillis();
 		endTime = startTime + timeAllowance;
 		absoluteEndTime = startTime + timeleft/3;
 		int depth;
-		int alpha = minValue;
-		int beta  = maxValue;
+		int previousEval = 0;
+		
+		/*
+		 * Iterative deepening:
+		 * Search the position with greater and greater position, using entries
+		 * stored in the transposition table to improve move ordering.
+		 * Allows the position to be searched to the highest depth given time constraints
+		 */
 		for (depth = 1; depth < maxDepth; depth++) {
-			eval = search(depth, 0, alpha, beta);
+//			eval = search(depth, 0, alpha, beta);
+			eval = aspirationSearch(previousEval, depth);
+			previousEval = eval;
 			printStatistics(depth, eval, System.currentTimeMillis() - startTime);
 			if (System.currentTimeMillis() >= absoluteEndTime)
 				return pvTable[0][0];
@@ -94,6 +91,49 @@ public class Search {
 		}
 
 		return pvTable[0][0];
+	}
+	
+	/**
+	 * Performs a search with a smaller window to get more cutoffs
+	 * @param prevEval The evaluation of the position searched to the previous depth
+	 * @param depth    The depth of this search
+	 * @return The evaluation of the position after the aspirated search
+	 */
+	private int aspirationSearch(int prevEval, int depth) {
+		int delta = 50;
+		int score = 0;
+		int alpha = minValue;
+		int beta  = maxValue;
+		
+		// only make the smaller windows if depth is high enough-> lower variability in eval
+		if (depth >= 5) {
+			alpha = Math.max(prevEval - delta, minValue);
+			beta  = Math.min(prevEval + delta, maxValue);
+		}
+		
+		while (true) {
+			score = search(depth, 0, alpha, beta);
+			if (System.currentTimeMillis() >= absoluteEndTime) {
+				break;
+			}
+			
+			// fail low, re-search with a lower alpha bound
+			if (score <= alpha) {
+				beta = (alpha + beta)/2;
+				alpha = Math.max(alpha - delta, minValue);
+			}
+			
+			// fail high, re-search with a higher beta bound
+			else if (score >= beta) {
+				beta = Math.min(beta + delta, maxValue);
+			}
+			
+			else {
+				break;
+			}
+			delta *= 2;
+		}
+		return score;
 	}
 	
 	private void printStatistics(int depth, int eval, long time) {
@@ -166,15 +206,13 @@ public class Search {
 		if (!generator.isInCheck(b, b.getKingpos(side), side)
 				&& depth > 2
 				&& ply > 0 
-				&& madeNullMove == false
+				&& ss[ply-1].currentMove != nullMove
 				&& !pvNode
 				&& (Long.bitCount(b.getOccupiedSquares() ^ b.getBitBoard(Piece.WHITE, Piece.PAWN)
 						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
 			b.makeNullMove();
-			madeNullMove = true;
 			ss[ply].currentMove = nullMove;
 			int score = -search(depth - 1 - 2, ply + 1, -beta, -beta+1); // depth reduction of 2
-        	madeNullMove = false;
 			b.unMakeNullMove();
 			
 			if (score >= beta) {
@@ -202,7 +240,6 @@ public class Search {
             	continue;
             }
             ss[ply].currentMove = move;
-        	madeNullMove = false;
         	moveCount++;
         	boolean isQuiet = isQuiet(move);
         	if (isQuiet) moveList.addQuiet(move);
@@ -353,6 +390,12 @@ public class Search {
 		return bestScore;
 	}
 	
+	/**
+	 * Assigns a bonus to the quiet cutoff move, penalties to all other played quiets
+	 * @param ml    The MoveList
+	 * @param depth The depth the position was searched to
+	 * @param side  The side that made the cutoff move
+	 */
 	private void updateQuietHistory(MoveList ml, int depth, int side) {
 		
 		for (int i = 0; i < ml.numQuiets(); i++) {
@@ -362,6 +405,14 @@ public class Search {
 		}
 	}
 	
+	/**
+	 * Calculates the appropriate penalty/bonus to a quiet move
+	 * @param from  The origin square
+	 * @param to    The destination square
+	 * @param side  The side that made the move
+	 * @param depth The depth the moves were searched to
+	 * @param good  Whether the move was the cutoff move or not
+	 */
 	private void updateHistory(int from, int to, int side, int depth, boolean good) {
 		int entry = MoveOrderer.historyTable[side][from][to];
 		int bonus = depth * depth;
@@ -370,6 +421,11 @@ public class Search {
 		MoveOrderer.historyTable[side][from][to] = entry + bonus - entry * Math.abs(bonus)/16384;
 	}
 	
+	/**
+	 * Determines if the move is quiet
+	 * @param m The move to determine
+	 * @return  True if the move is quiet, false if it is not
+	 */
 	private boolean isQuiet(Move m) {
 		if (m.getCapturedPiece() != null || m.getPromotionPiece() != Piece.NULL) {
 			return false;
