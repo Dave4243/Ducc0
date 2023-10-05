@@ -57,20 +57,19 @@ public class Search {
 		this.b = b;
 		// in milliseconds
 		long timeAllowance = (long)((timeleft/20.0 + increment/2.0));
-		timeAllowance /= 3;
+		timeAllowance /= 2;
 		
 		int eval = b.getSideToMove() == Piece.WHITE ? minValue : maxValue;
 
-
 		long startTime = System.currentTimeMillis();
 		endTime = startTime + timeAllowance;
-		absoluteEndTime = startTime + timeleft/3;
+		absoluteEndTime = startTime + timeleft / 3;
 		int depth;
 		int previousEval = 0;
-		
+		Move previousBest = null;
 		/*
 		 * Iterative deepening:
-		 * Search the position with greater and greater position, using entries
+		 * Search the position with greater and greater depth, using entries
 		 * stored in the transposition table to improve move ordering.
 		 * Allows the position to be searched to the highest depth given time constraints
 		 */
@@ -78,9 +77,13 @@ public class Search {
 //			eval = search(depth, 0, alpha, beta);
 			eval = aspirationSearch(previousEval, depth);
 			previousEval = eval;
+			boolean aborted = Math.abs(eval) == searchAborted;
 			printStatistics(depth, eval, System.currentTimeMillis() - startTime);
-			if (System.currentTimeMillis() >= absoluteEndTime)
+			if (System.currentTimeMillis() >= absoluteEndTime) {
+				if (aborted) return previousBest;
+				
 				return pvTable[0][0];
+			}
 			
 			if (System.currentTimeMillis() > endTime)
 				break;
@@ -88,6 +91,8 @@ public class Search {
 			// mate score
 			if (eval >= maxValue - maxDepth)
 				break;
+			
+			previousBest = pvTable[0][0];
 		}
 
 		return pvTable[0][0];
