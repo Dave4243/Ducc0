@@ -166,9 +166,10 @@ public class Search {
 			return searchAborted;
 		}
 		
-		pvLength[ply] = ply;
+		pvLength[ply]  = ply;
 		boolean pvNode = beta - alpha > 1;
-		long key = b.getZobristKey();
+		long    key    = b.getZobristKey();
+		boolean ttHit  = false;
 		
 		if (ply > 0 && (b.isRepeat(key) || b.getHalfMoveClock() >= 100)) {
 			return 0;
@@ -184,8 +185,10 @@ public class Search {
 		/************************** probes the transposition table ****************************/
 		Entry entry = tTable.lookup(key);
 		Move hashMove = null;
-		if (entry != null)
+		if (entry != null) {
 			hashMove = entry.getBestMove();
+			ttHit = true;
+		}
 		
 		// use entry if entry depth >= current depth and current node != pv node
 		if (entry != null 
@@ -204,11 +207,21 @@ public class Search {
 		/**************************************************************************************/
 
 		int side = b.getSideToMove();
+		boolean inCheck = generator.isInCheck(b, b.getKingpos(side), side);
+		int eval = ttHit ? entry.getEvaluation() : evaluator.evaluatePosition(b);
+		
+		/**************************** reverse futility pruning ********************************/
+		if (!pvNode
+				&& !inCheck
+				&& depth <= 6
+				&& eval - depth * 80 > beta) {
+			return eval;
+		}
 
 		/****************************** null move pruning *************************************/
 		// don't prune at pv nodes, at possible zugzwang nodes, if pruning descends into qs
 		// also don't make consecutive null moves
-		if (!generator.isInCheck(b, b.getKingpos(side), side)
+		if (!inCheck
 				&& depth > 2
 				&& ply > 0 
 				&& ss[ply-1].currentMove != nullMove
@@ -251,10 +264,8 @@ public class Search {
         	
         	int score;
         	int ext = 0;
-        	if (generator.isInCheck(b, b.getKingpos(1-side), 1-side)){
-        		ext = 1;
-        	}
-        	
+        	if (inCheck) ext = 1;
+	
         	/********************** Principal Variation Search ******************************/
         	
         	// search starts off assuming the first node is a PV node
