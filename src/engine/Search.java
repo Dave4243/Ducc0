@@ -105,7 +105,7 @@ public class Search {
 	 * @return The evaluation of the position after the aspirated search
 	 */
 	private int aspirationSearch(int prevEval, int depth) {
-		int delta = 50;
+		int delta = 25;
 		int score = 0;
 		int alpha = minValue;
 		int beta  = maxValue;
