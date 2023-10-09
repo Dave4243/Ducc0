@@ -262,6 +262,15 @@ public class Search {
         	boolean isQuiet = isQuiet(move);
         	if (isQuiet) moveList.addQuiet(move);
         	
+        	if (!pvNode
+        			&& !inCheck
+        			&& isQuiet
+        			&& depth <= 3
+        			&& moveCount >= depth * 10) {
+        		b.undoMove(move);
+        		break;
+        	}
+        	
         	int score;
         	int ext = 0;
         	if (inCheck) ext = 1;
