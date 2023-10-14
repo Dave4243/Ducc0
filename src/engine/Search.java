@@ -206,31 +206,32 @@ public class Search {
 		}
 		/**************************************************************************************/
 
-		int side = b.getSideToMove();
+		int side        = b.getSideToMove();
 		boolean inCheck = generator.isInCheck(b, b.getKingpos(side), side);
-		int eval = ttHit ? entry.getEvaluation() : evaluator.evaluatePosition(b);
+		int staticEval  = ttHit ? entry.getEvaluation() : evaluator.evaluatePosition(b);
+//		int improving   = ply >= 2 && !inCheck && staticEval > ss[ply-2].staticEval ? 1 : 0;
 		
 		/**************************** reverse futility pruning ********************************/
 		if (!pvNode
 				&& !inCheck
 				&& depth <= 6
-				&& eval - depth * 80 > beta) {
-			return eval;
+				&& staticEval - depth * 80 > beta) {
+			return staticEval;
 		}
 
 		/****************************** null move pruning *************************************/
 		// don't prune at pv nodes, at possible zugzwang nodes, if pruning descends into qs
 		// also don't make consecutive null moves
 		if (!inCheck
-				&& depth > 2
-				&& ply > 0 
-				&& ss[ply-1].currentMove != nullMove
 				&& !pvNode
+				&& staticEval >= beta
+				&& depth > 2
+				&& ss[ply-1].currentMove != nullMove
 				&& (Long.bitCount(b.getOccupiedSquares() ^ b.getBitBoard(Piece.WHITE, Piece.PAWN)
 						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
 			b.makeNullMove();
 			ss[ply].currentMove = nullMove;
-			int score = -search(depth - 1 - 2, ply + 1, -beta, -beta+1); // depth reduction of 2
+			int score = -search(depth - 3 - depth/3, ply + 1, -beta, -beta+1);
 			b.unMakeNullMove();
 			
 			if (score >= beta) {
@@ -262,6 +263,7 @@ public class Search {
         	boolean isQuiet = isQuiet(move);
         	if (isQuiet) moveList.addQuiet(move);
         	
+        	/******************************** Late Move Pruning *******************************/
         	if (!pvNode
         			&& !inCheck
         			&& isQuiet
