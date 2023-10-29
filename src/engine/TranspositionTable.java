@@ -6,11 +6,12 @@ public class TranspositionTable {
 		EXACT, UPPER, LOWER;
 	}
 	
-	private static final int TABLE_SIZE = 1000000;
+	private static int TABLE_SIZE = 262144; // 16 mb hash
 	
 	private Entry[] table;
 	
-	public TranspositionTable() {
+	public TranspositionTable(int size) {
+		this.setSize(size);
 		this.table = new Entry[TABLE_SIZE];
 	}
 	
@@ -22,9 +23,9 @@ public class TranspositionTable {
 	 * @param type
 	 * @return True if the new entry was stored in the table, false if it wasn't
 	 */
-	public void store(long zobristKey, Move bestMove, int eval, int depth, int age, NodeType type) {
+	public void store(long zobristKey, Move bestMove, int eval, int depth, NodeType type) {
 		int index = getIndex(zobristKey);
-		Entry newEntry = new Entry(zobristKey, bestMove, eval, depth, age, type);
+		Entry newEntry = new Entry(zobristKey, bestMove, eval, depth, type);
 		table[index] = newEntry;
 	}
 	
@@ -52,6 +53,10 @@ public class TranspositionTable {
 	
 	public int getSize() {
 		return TABLE_SIZE;
+	}
+	
+	public void setSize(int hashMB) {
+		TABLE_SIZE = (1048576*hashMB)/64; 
 	}
 	
 	private int getIndex(long key) {

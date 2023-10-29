@@ -30,7 +30,7 @@ public class Search {
 		
 		evaluator = new Evaluator();
 		generator = new MoveGenerator();
-		tTable    = new TranspositionTable();
+		tTable    = new TranspositionTable(UCI.ttSize);
 		MoveOrderer.clearHistory();
 		
 		ss = new SearchStack[maxDepth];
@@ -171,9 +171,9 @@ public class Search {
 		long    key    = b.getZobristKey();
 		boolean ttHit  = false;
 		
-		if (ply > 0 && (b.isRepeat(key) || b.getHalfMoveClock() >= 100)) {
-			return 0;
-		}
+		if (ply > 0 && b.isRepeat(key) || b.getHalfMoveClock() >= 100) 
+				return 0;
+		
 		
 		if (depth == 0) {
 			return quiescenceSearch(alpha, beta);
@@ -222,24 +222,24 @@ public class Search {
 		/****************************** null move pruning *************************************/
 		// don't prune at pv nodes, at possible zugzwang nodes, if pruning descends into qs
 		// also don't make consecutive null moves
-		if (!inCheck
-				&& !pvNode
-				&& staticEval >= beta
-				&& depth > 2
-				&& ss[ply-1].currentMove != nullMove
-				&& (Long.bitCount(b.getOccupiedSquares() ^ b.getBitBoard(Piece.WHITE, Piece.PAWN)
-						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
-			b.makeNullMove();
-			ss[ply].currentMove = nullMove;
-			int score = -search(depth - 3 - depth/3, ply + 1, -beta, -beta+1);
-			b.unMakeNullMove();
-			
-			if (score >= beta) {
-				if (score >= maxValue - 100)
-					return beta;
-				return score;
-			}
-		}
+//		if (!inCheck
+//				&& !pvNode
+//				&& staticEval >= beta
+//				&& depth > 2
+//				&& ss[ply-1].currentMove != nullMove
+//				&& (Long.bitCount(b.getOccupiedSquares() ^ b.getBitBoard(Piece.WHITE, Piece.PAWN)
+//						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
+//			b.makeNullMove();
+//			ss[ply].currentMove = nullMove;
+//			int score = -search(depth - 3 - depth/3, ply + 1, -beta, -beta+1);
+//			b.unMakeNullMove();
+//			
+//			if (score >= beta) {
+//				if (score >= maxValue - 100)
+//					return beta;
+//				return score;
+//			}
+//		}
 		/*************************************************************************************/
 		
 	    MoveList moveList = generator.generateMoves(b, false);
@@ -341,7 +341,7 @@ public class Search {
 		        			updateQuietHistory(moveList, depth, side);
 		        		}
 	            		type = NodeType.LOWER;
-	            		tTable.store(key, move, score, depth, b.getMoveNumber(), type);
+	            		tTable.store(key, move, score, depth, type);
 	            		return score; 
 	            	}
             	}
@@ -356,7 +356,7 @@ public class Search {
 	    	}
 	        return minValue + ply; // checkmate
         }
-        tTable.store(key, bestMove, bestScore, depth, b.getMoveNumber(), type);
+        tTable.store(key, bestMove, bestScore, depth, type);
         return bestScore;
 	}
 	

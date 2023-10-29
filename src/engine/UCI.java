@@ -5,6 +5,8 @@ import java.util.Scanner;
 public class UCI {
 	private static Board         board;
 	private static Search        search;
+	
+	public static int ttSize = 16;
 
 	private static void initialize() {
 		board  = new Board();
@@ -26,6 +28,10 @@ public class UCI {
 		switch(command ) {
 		case "uci":	
 			System.out.println("uciok");
+			System.out.println("option name Hash type spin default 16 min 1 max 1000");
+			break;
+		case "setoption":
+			setOptions(args);
 			break;
 		case "ucinewgame":
 			initialize();
@@ -42,6 +48,12 @@ public class UCI {
 		case "display":
 			System.out.println(board);
 			break;
+		}
+	}
+	
+	private static void setOptions(String[] input) {
+		if ("Hash".equals(input[2])) {
+			ttSize = Integer.valueOf(input[4]);
 		}
 	}
 	

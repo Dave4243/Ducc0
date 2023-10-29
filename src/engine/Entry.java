@@ -12,7 +12,6 @@ public class Entry {
 	private Move     bestMove;
 	private int      evaluation;
 	private int      depth;
-	private int      age;
 	private NodeType type;
 	
 	/**
@@ -23,12 +22,11 @@ public class Entry {
 	 * @param age The move number that the position occured at
 	 * @param t The type of node stored (EXACT= PV, LOWER = cut node, UPPER = all node)
 	 */
-	public Entry(long key, Move m, int eval, int depth, int age, NodeType t) {
+	public Entry(long key, Move m, int eval, int depth, NodeType t) {
 		this.zobristKey = key;
 		this.bestMove   = m;
 		this.evaluation = eval;
 		this.depth      = depth;
-		this.age        = age;
 		this.type       = t;
 	}
 	
@@ -46,10 +44,6 @@ public class Entry {
 	
 	public int getDepth() {
 		return depth;
-	}
-	
-	public int getAge() {
-		return age;
 	}
 	
 	public NodeType getNodeType() {
