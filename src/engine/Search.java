@@ -222,24 +222,24 @@ public class Search {
 		/****************************** null move pruning *************************************/
 		// don't prune at pv nodes, at possible zugzwang nodes, if pruning descends into qs
 		// also don't make consecutive null moves
-//		if (!inCheck
-//				&& !pvNode
-//				&& staticEval >= beta
-//				&& depth > 2
-//				&& ss[ply-1].currentMove != nullMove
-//				&& (Long.bitCount(b.getOccupiedSquares() ^ b.getBitBoard(Piece.WHITE, Piece.PAWN)
-//						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
-//			b.makeNullMove();
-//			ss[ply].currentMove = nullMove;
-//			int score = -search(depth - 3 - depth/3, ply + 1, -beta, -beta+1);
-//			b.unMakeNullMove();
-//			
-//			if (score >= beta) {
-//				if (score >= maxValue - 100)
-//					return beta;
-//				return score;
-//			}
-//		}
+		if (!inCheck
+				&& !pvNode
+				&& staticEval >= beta
+				&& depth > 2
+				&& ss[ply-1].currentMove != nullMove
+				&& (Long.bitCount(b.getOccupiedSquares() ^ b.getBitBoard(Piece.WHITE, Piece.PAWN)
+						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
+			b.makeNullMove();
+			ss[ply].currentMove = nullMove;
+			int score = -search(depth - 3 - depth/3, ply + 1, -beta, -beta+1);
+			b.unMakeNullMove();
+			
+			if (score >= beta) {
+				if (score >= maxValue - 100)
+					return beta;
+				return score;
+			}
+		}
 		/*************************************************************************************/
 		
 	    MoveList moveList = generator.generateMoves(b, false);
