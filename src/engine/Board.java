@@ -1,6 +1,5 @@
 package engine;
 import java.util.ArrayDeque;
-import java.util.HashSet;
 
 /**
  * @author Dave4243
@@ -61,9 +60,10 @@ public class Board {
 		int   fromSquare    = m.getFromSquare();
 		int   toSquare      = m.getToSquare();
 		int   pieceType     = pieces[fromSquare].getType();
-		int   capturedPiece = m.getCapturedPiece() == null ? -1 : m.getCapturedPiece().getType();
-
-		if (pieceType == Piece.PAWN || capturedPiece != -1) {
+		int   capturedPieceType = m.getCapturedPieceType();
+		Piece capturedPiece = capturedPieceType != -1 ? new Piece(1-sideToMove, capturedPieceType): null;
+		
+		if (pieceType == Piece.PAWN || capturedPieceType != -1) {
 			halfMoveClock = 0;	
 		}
 		else {
@@ -79,16 +79,16 @@ public class Board {
 		pieces[fromSquare] = null;
 		
 		// capture
-		if (capturedPiece != -1) {
+		if (capturedPieceType != -1) {
 			if (m.isEnPassant()) {
-				bitBoards[1-sideToMove][capturedPiece] ^= 0x1L << (toSquare + push[sideToMove]);
+				bitBoards[1-sideToMove][capturedPieceType] ^= 0x1L << (toSquare + push[sideToMove]);
 				m.setCapturedPiece(pieces[toSquare + push[sideToMove]]);
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(m.getCapturedPiece(), toSquare + push[sideToMove])];
+				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(capturedPiece, toSquare + push[sideToMove])];
 				pieces[toSquare + push[sideToMove]] = null;
 			}
 			else {
-				bitBoards[1-sideToMove][capturedPiece] ^= toBB;
-				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(m.getCapturedPiece(), toSquare)];
+				bitBoards[1-sideToMove][capturedPieceType] ^= toBB;
+				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(capturedPiece, toSquare)];
 			}
 		}
 		// castle
@@ -136,25 +136,25 @@ public class Board {
 		int   fromSquare    = m.getFromSquare();
 		int   toSquare      = m.getToSquare();
 		int   pieceType     = pieces[toSquare].getType();
-		int   capturedPiece = m.getCapturedPiece() == null ? -1 : m.getCapturedPiece().getType();
-		Piece cPiece = m.getCapturedPiece();
+		int   capturedPieceType = m.getCapturedPieceType();
+		Piece capturedPiece = capturedPieceType != -1 ? new Piece(1-sideToMove, capturedPieceType) : null;
 		
 		long fromBB = 0x1L << fromSquare;
 		long toBB = 0x1L << toSquare;
 		bitBoards[sideToMove][pieceType] ^= fromBB ^ toBB;
 
 		pieces[fromSquare] = pieces[toSquare];
-		pieces[toSquare] = cPiece;
+		pieces[toSquare] = capturedPiece;
 		
 		// capture
-		if (capturedPiece != -1) {
+		if (capturedPieceType != -1) {
 			if (m.isEnPassant()) {
-				bitBoards[1-sideToMove][capturedPiece] ^= 0x1L << (toSquare + push[sideToMove]);
+				bitBoards[1-sideToMove][capturedPieceType] ^= 0x1L << (toSquare + push[sideToMove]);
 				pieces[toSquare] = null;
-				pieces[toSquare + push[sideToMove]] = cPiece;
+				pieces[toSquare + push[sideToMove]] = capturedPiece;
 			}
 			else {
-				bitBoards[1-sideToMove][capturedPiece] ^= toBB;
+				bitBoards[1-sideToMove][capturedPieceType] ^= toBB;
 			}
 		}
 		// castle
