@@ -2,53 +2,67 @@ package engine;
 
 public class TranspositionTable {
 	
-	public enum NodeType {
-		EXACT, UPPER, LOWER;
-	}
+	private static int TABLE_SIZE = 1048576;
 	
-	private static int TABLE_SIZE = 262144; // 16 mb hash
+	private long[] keys;
+	private long[] table;
 	
-	private Entry[] table;
+//	private Entry[] entries;
 	
-	public TranspositionTable(int size) {
-		this.setSize(size);
-		this.table = new Entry[TABLE_SIZE];
+	public TranspositionTable() {
+		this.setSize(UCI.ttSize);
+		keys = new long[TABLE_SIZE];
+		table = new long[TABLE_SIZE];
+		
+//		entries = new Entry[TABLE_SIZE];
 	}
 	
 	/**
 	 * @param zobristKey
 	 * @param eval
 	 * @param depth
-	 * @param age
 	 * @param type
 	 * @return True if the new entry was stored in the table, false if it wasn't
 	 */
-	public void store(long zobristKey, Move bestMove, int eval, int depth, NodeType type) {
+	public void store(long zobristKey, Move bestMove, int eval, int depth, byte type) {
 		int index = getIndex(zobristKey);
-		Entry newEntry = new Entry(zobristKey, bestMove, eval, depth, type);
-		table[index] = newEntry;
+		
+		int move = bestMove.toInt();
+		move |= (depth << 24) & 0x3f000000L;
+		move |= ((int)type << 30);
+		long entry = (move & 0xffffffffL) | ((long)eval << 32);
+		
+		table[index] = entry;
+		keys[index] = zobristKey;
+		
+//		entries[index] = new Entry(zobristKey, bestMove, eval, depth, type);
 	}
 	
 	public Entry lookup(long zobristKey) {
 		int index = getIndex(zobristKey);
-		Entry entry = table[index];
-		if (entry == null)
-			return null;
-		if (entry.getHash() != zobristKey)
-			return null;
+		Entry entry = null;
+		if (keys[index] == zobristKey) {
+			long data = table[index];
+			int eval = (int)(data >>> 32);
+			int depth = (int)(data & 0x3f000000L) >>> 24;
+			byte type = (byte)((data & 0xc0000000L) >>> 30);
+			Move m = Move.convert((int)(data & 0xffffffffL));
+			entry = new Entry(keys[index], m, eval, depth, type);
+			
+//			if (!entry.equals(entries[index])) System.out.println("TRANSPOSITION ERROR");
+		}
 		return entry;
 	}
 	
 	public boolean contains(long zobristKey) {
-		if (table[getIndex(zobristKey)] == null)
-			return false;
-		if (table[getIndex(zobristKey)].getHash() == zobristKey) 
+		if (keys[getIndex(zobristKey)] == zobristKey) 
 			return true;
 		return false;
 	}
 	
 	public void clear() {
-		table = new Entry[TABLE_SIZE];
+		keys = new long[TABLE_SIZE];
+		table = new long[TABLE_SIZE];
 	}
 	
 	public int getSize() {
@@ -56,7 +70,7 @@ public class TranspositionTable {
 	}
 	
 	public void setSize(int hashMB) {
-		TABLE_SIZE = (1048576*hashMB)/64; 
+		TABLE_SIZE = (1048576*hashMB)/16; 
 	}
 	
 	private int getIndex(long key) {

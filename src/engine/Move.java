@@ -5,9 +5,7 @@ public class Move {
 	private byte toSquare;
 	private byte promotionPiece;
 	private byte castlingFlag;
-	
-	private Piece capturedPiece;
-	private byte  cPieceType;
+	private byte cPieceType;
 	
 	private boolean isEnPassant;
 	
@@ -46,12 +44,7 @@ public class Move {
 	}
 	
 	public void setCapturedPiece(Piece p) {
-		this.capturedPiece = p;
-		cPieceType = p != null ? (byte) (p.getType() + 1) : 0;
-	}
-	
-	public Piece getCapturedPiece() {
-		return capturedPiece;
+		cPieceType = p != null ? (byte) (p.getType()) : -1;
 	}
 	
 	public int getCapturedPieceType() {
@@ -101,6 +94,37 @@ public class Move {
 				  + (char)('a' + toFile) + (toRank + 1) + promotion;
 	}
 	
+	public int toInt() {
+		int result = fromSquare; // first 6 bits
+		result |= (int)toSquare << 6; // bits 7-12
+		result |= (int)castlingFlag << 12; // bits 13-16
+		result |= ((int)promotionPiece + 1) << 16; // bits 17-19
+		result |= ((int)cPieceType + 1) << 19; // bits 20-22
+		if (isEnPassant) result |= 1 << 22; // bit 23
+		return result;
+	}
+	
+	public static int getFromInt(int move) {
+		return move & 0x3f;
+	}
+	
+	public static int getToInt(int move) {
+		return (move & 0xfc0) >>> 6;
+	}
+	
+	public static int getCapturedInt(int move) {
+		return ((move & 0x380000) >>> 19)-1;
+	}
+	
+	public static Move convert(int move) {
+		Move result = new Move(getFromInt(move), getToInt(move));
+		result.setCapturedPiece(new Piece(0, getCapturedInt(move)));
+		result.setCastlingFlag((move & 0xf000) >>> 12);
+		result.setPromotionPiece(((move & 0x70000) >>> 16)-1);
+		if ((move & 0x400000) != 0) result.setEnPassant(true);
+		return result;
+	}
+	
 	public boolean equals(Move m) {
 		if (m != null 
 			&& (this.fromSquare     == m.fromSquare)
@@ -108,7 +132,7 @@ public class Move {
 			&& (this.promotionPiece == m.promotionPiece)
 			&& (this.isEnPassant    == m.isEnPassant)
 			&& (this.castlingFlag   == m.castlingFlag)
-			&& (this.cPieceType     == m.cPieceType)){
+			&& (this.cPieceType     == m.cPieceType)) {
 			return true;
 		}
 		return false;

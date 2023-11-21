@@ -12,12 +12,12 @@ public class Piece {
 	public static final int QUEEN  = 4;
 	public static final int KING   = 5;
 	
-	private int color;
-	private int type;
+	private byte color;
+	private byte type;
 	
 	public Piece(int color, int type) {
-		this.color = color;
-		this.type  = type;
+		this.color = (byte) color;
+		this.type = (byte) type;
 	}
 	
 	public int getColor() {

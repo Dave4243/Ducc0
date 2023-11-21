@@ -143,6 +143,7 @@ public class MoveGenerator {
 			
 			Move whiteKingside = new Move(4, 6);
 			whiteKingside.setCastlingFlag(0b0001);
+			whiteKingside.setCapturedPiece(null);
 			result.add(whiteKingside);
 		}
 		if ((b.getCastlingRights() & 0b0010) != 0 
@@ -152,6 +153,7 @@ public class MoveGenerator {
 			
 			Move whiteQueenside = new Move(4, 2);
 			whiteQueenside.setCastlingFlag(0b0010);
+			whiteQueenside.setCapturedPiece(null);
 			result.add(whiteQueenside);
 		}	
 	}
@@ -164,6 +166,7 @@ public class MoveGenerator {
 			
 			Move blackKingside = new Move(60, 62);
 			blackKingside.setCastlingFlag(0b0100);
+			blackKingside.setCapturedPiece(null);
 			result.add(blackKingside);
 		}	
 		
@@ -174,6 +177,7 @@ public class MoveGenerator {
 			
 			Move blackQueenside = new Move(60, 58);
 			blackQueenside.setCastlingFlag(0b1000);
+			blackQueenside.setCapturedPiece(null);
 			result.add(blackQueenside);
 		}
 	}

@@ -48,7 +48,7 @@ public class MoveOrderer {
 	
 	private static int computeValue(Board b, Move m, int ply) {
 		// quiet moves are searched after equal captures and killers
-		if (m.getCapturedPiece() == null && m.getPromotionPiece() == Piece.NULL) {
+		if (m.getCapturedPieceType() == -1 && m.getPromotionPiece() == Piece.NULL) {
 
 			return historyTable[b.getSideToMove()][m.getFromSquare()][m.getToSquare()];
 		}
@@ -57,8 +57,7 @@ public class MoveOrderer {
 		
 		int aggressor = pieceValues[b.getPiece(m.getFromSquare()).getType()];
 
-		int victim = pieceValues[m.getCapturedPieceType()];
-
+		int victim = pieceValues[m.getCapturedPieceType() + 1];
 		return (victim + promotion)* 1000 - aggressor;
 	}
 	

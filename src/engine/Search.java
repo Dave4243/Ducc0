@@ -1,5 +1,4 @@
 package engine;
-import engine.TranspositionTable.NodeType;
 
 /**
  * @author Dave4243
@@ -30,7 +29,7 @@ public class Search {
 		
 		evaluator = new Evaluator();
 		generator = new MoveGenerator();
-		tTable    = new TranspositionTable(UCI.ttSize);
+		tTable    = new TranspositionTable();
 		MoveOrderer.clearHistory();
 		
 		ss = new SearchStack[maxDepth];
@@ -171,9 +170,9 @@ public class Search {
 		long    key    = b.getZobristKey();
 		boolean ttHit  = false;
 		
-		if (ply > 0 && b.isRepeat(key) || b.getHalfMoveClock() >= 100) 
-				return 0;
-		
+		if (ply > 0 && b.isRepeat(key) || b.getHalfMoveClock() >= 100) {
+			return 0;
+		}
 		
 		if (depth == 0) {
 			return quiescenceSearch(alpha, beta);
@@ -196,11 +195,11 @@ public class Search {
 				&& Math.abs(entry.getEvaluation()) != searchAborted
 				&& !pvNode) {
 			int storedScore = entry.getEvaluation();
-			NodeType type = entry.getNodeType();
+			byte type = entry.getNodeType();
 			
-			if (type == NodeType.EXACT
-				|| (type == NodeType.UPPER && storedScore <= alpha)
-				|| (type == NodeType.LOWER && storedScore >= beta)) {
+			if (type == Entry.EXACT
+				|| (type == Entry.UPPER && storedScore <= alpha)
+				|| (type == Entry.LOWER && storedScore >= beta)) {
 				return storedScore;
 			}
 		}
@@ -231,7 +230,8 @@ public class Search {
 						^ b.getBitBoard(Piece.BLACK, Piece.PAWN))) >= 5) {
 			b.makeNullMove();
 			ss[ply].currentMove = nullMove;
-			int score = -search(depth - 3 - depth/3, ply + 1, -beta, -beta+1);
+			int reduction = Math.min(depth-1, 3 + depth/3);
+			int score = -search(depth - reduction, ply + 1, -beta, -beta+1);
 			b.unMakeNullMove();
 			
 			if (score >= beta) {
@@ -245,7 +245,7 @@ public class Search {
 	    MoveList moveList = generator.generateMoves(b, false);
 	    MoveOrderer.scoreMoves(moveList, b, hashMove, ply);
 	    
-        NodeType type = NodeType.UPPER;
+        byte type = Entry.UPPER;
         Move bestMove = moveList.moves[0];
         
         int bestScore = minValue;
@@ -333,14 +333,14 @@ public class Search {
             	/***********************************************************************/
             	
             	if (score > alpha) {
-	            	type  = NodeType.EXACT;
+	            	type  = Entry.EXACT;
 	            	alpha = score;
 
 	            	if (score >= beta) {
 		        		if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) {
 		        			updateQuietHistory(moveList, depth, side);
 		        		}
-	            		type = NodeType.LOWER;
+	            		type = Entry.LOWER;
 	            		tTable.store(key, move, score, depth, type);
 	            		return score; 
 	            	}
@@ -454,7 +454,7 @@ public class Search {
 	 * @return  True if the move is quiet, false if it is not
 	 */
 	private boolean isQuiet(Move m) {
-		if (m.getCapturedPiece() != null || m.getPromotionPiece() != Piece.NULL) {
+		if (m.getCapturedPieceType() != -1 || m.getPromotionPiece() != Piece.NULL) {
 			return false;
 		}
 		return true;
