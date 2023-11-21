@@ -27,8 +27,8 @@ public class UCI {
 		String command = args[0];
 		switch(command ) {
 		case "uci":	
-			System.out.println("uciok");
 			System.out.println("option name Hash type spin default 16 min 1 max 1000");
+			System.out.println("uciok");
 			break;
 		case "setoption":
 			setOptions(args);
