@@ -34,10 +34,10 @@ public class MoveGenerator {
 			long moveBB    = getPawnMoves(b, source, color);
 			long epTarget = b.getEnPassantTarget();
 			if ((captureBB & epTarget) != 0) {
-				Move m = new Move(source, BitBoard.getLSB(epTarget));
-				m.setEnPassant(true);
-				m.setCapturedPiece(b.getPiece(m.getToSquare() + push[color]));
-				result.add(m);
+				int move = Move.make(source, BitBoard.getLSB(epTarget));
+				move = Move.setEnPassant(move, 1);
+				move = Move.setCap(move, b.getPiece(BitBoard.getLSB(epTarget) + push[color]));
+				result.add(move);
 				captureBB &= ~b.getEnPassantTarget();
 			}
 			// generate promotions instead of regular moves
@@ -92,9 +92,9 @@ public class MoveGenerator {
 	private void generateMovesFromBitBoard(MoveList result, long attackBitBoard, int source, Board b) {
 		while (attackBitBoard != 0) {
 			int dest = BitBoard.getLSB(attackBitBoard);
-			Move m = new Move(source, dest);
-			m.setCapturedPiece(b.getPiece(dest));
-			result.add(m);
+			int move = Move.make(source, dest);
+			move = Move.setCap(move, b.getPiece(dest));
+			result.add(move);
 			attackBitBoard &= attackBitBoard -1;
 		}
 	}
@@ -102,14 +102,17 @@ public class MoveGenerator {
 	private void generatePromotions(MoveList result, long attackBitBoard, int source, Board b) {
 		while (attackBitBoard != 0) {
 			int dest = BitBoard.getLSB(attackBitBoard);
-			Move m1 = new Move(source, dest, 4);
-			m1.setCapturedPiece(b.getPiece(dest));
-			Move m2 = new Move(source, dest, 3);
-			m2.setCapturedPiece(b.getPiece(dest));
-			Move m3 = new Move(source, dest, 2);
-			m3.setCapturedPiece(b.getPiece(dest));
-			Move m4 = new Move(source, dest, 1);
-			m4.setCapturedPiece(b.getPiece(dest));
+			int m1 = Move.make(source, dest, Piece.QUEEN);
+			m1 = Move.setCap(m1, b.getPiece(dest));
+			
+			int m2 = Move.make(source, dest, Piece.ROOK);
+			m2 = Move.setCap(m2, b.getPiece(dest));
+			
+			int m3 = Move.make(source, dest, Piece.BISHOP);
+			m3 = Move.setCap(m3, b.getPiece(dest));
+			
+			int m4 = Move.make(source, dest, Piece.KNIGHT);
+			m4 = Move.setCap(m4, b.getPiece(dest));
 			
 			result.add(m1);
 			result.add(m2);
@@ -141,9 +144,9 @@ public class MoveGenerator {
 				&& (b.getBitBoard(Piece.WHITE, Piece.ROOK) & 0x80L) != 0 
 				&& !isInCheck(b, 5, Piece.WHITE)) {
 			
-			Move whiteKingside = new Move(4, 6);
-			whiteKingside.setCastlingFlag(0b0001);
-			whiteKingside.setCapturedPiece(null);
+			int whiteKingside = Move.make(4, 6);
+			whiteKingside = Move.setCastle(whiteKingside, 0b0001);
+			whiteKingside = Move.setCap(whiteKingside, null);
 			result.add(whiteKingside);
 		}
 		if ((b.getCastlingRights() & 0b0010) != 0 
@@ -151,9 +154,9 @@ public class MoveGenerator {
 				&& (b.getBitBoard(Piece.WHITE, Piece.ROOK) & 0x1L) != 0 
 				&& !isInCheck(b, 3, Piece.WHITE)) {
 			
-			Move whiteQueenside = new Move(4, 2);
-			whiteQueenside.setCastlingFlag(0b0010);
-			whiteQueenside.setCapturedPiece(null);
+			int whiteQueenside = Move.make(4, 2);
+			whiteQueenside = Move.setCastle(whiteQueenside, 0b0010);
+			whiteQueenside = Move.setCap(whiteQueenside, null);
 			result.add(whiteQueenside);
 		}	
 	}
@@ -164,9 +167,10 @@ public class MoveGenerator {
 				&& (b.getBitBoard(Piece.BLACK, Piece.ROOK) & 0x8000000000000000L) != 0 
 				&& !isInCheck(b, 61, Piece.BLACK)) {
 			
-			Move blackKingside = new Move(60, 62);
-			blackKingside.setCastlingFlag(0b0100);
-			blackKingside.setCapturedPiece(null);
+			int blackKingside = Move.make(60, 62);
+			blackKingside = Move.setCastle(blackKingside, 0b0100);
+			blackKingside = Move.setCap(blackKingside, null);
+			
 			result.add(blackKingside);
 		}	
 		
@@ -175,9 +179,10 @@ public class MoveGenerator {
 				&& (b.getBitBoard(Piece.BLACK, Piece.ROOK) & 0x100000000000000L) != 0 
 				&& !isInCheck(b, 59, Piece.BLACK)) {
 			
-			Move blackQueenside = new Move(60, 58);
-			blackQueenside.setCastlingFlag(0b1000);
-			blackQueenside.setCapturedPiece(null);
+			int blackQueenside = Move.make(60, 58);
+			blackQueenside = Move.setCastle(blackQueenside, 0b1000);
+			blackQueenside = Move.setCap(blackQueenside, null);
+			
 			result.add(blackQueenside);
 		}
 	}

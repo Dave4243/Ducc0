@@ -20,8 +20,8 @@ public class Search {
 	private static final int maxDepth = 100;
 	
 	private int[] pvLength;
-	private Move[][] pvTable;
-	private static final Move nullMove = new Move(0,0);
+	private int[][] pvTable;
+	private static final int nullMove = -69;
 	private SearchStack[] ss;
 
 	public Search(Board b) {
@@ -37,11 +37,11 @@ public class Search {
 			ss[i] = new SearchStack();
 		}
 		pvLength = new int[maxDepth];
-		pvTable  = new Move[maxDepth][maxDepth];
+		pvTable  = new int[maxDepth][maxDepth];
 	}
 	
 	class SearchStack {
-		Move currentMove;
+		int currentMove;
 		int staticEval;
 	}
 	
@@ -52,7 +52,7 @@ public class Search {
 	 * @param increment The increment on the time control
 	 * @return The best move found during the time allocated for search
 	 */
-	public Move getBestMove(Board b, int timeleft, int increment) {
+	public int getBestMove(Board b, int timeleft, int increment) {
 		this.b = b;
 		// in milliseconds
 		long timeAllowance = (long)((timeleft/20.0 + increment/2.0));
@@ -65,7 +65,7 @@ public class Search {
 		absoluteEndTime = startTime + timeleft / 3;
 		int depth;
 		int previousEval = 0;
-		Move previousBest = null;
+		int previousBest = -1;
 		/*
 		 * Iterative deepening:
 		 * Search the position with greater and greater depth, using entries
@@ -183,7 +183,7 @@ public class Search {
 		
 		/************************** probes the transposition table ****************************/
 		Entry entry = tTable.lookup(key);
-		Move hashMove = null;
+		int hashMove = -1;
 		if (entry != null) {
 			hashMove = entry.getBestMove();
 			ttHit = true;
@@ -246,14 +246,14 @@ public class Search {
 	    MoveOrderer.scoreMoves(moveList, b, hashMove, ply);
 	    
         byte type = Entry.UPPER;
-        Move bestMove = moveList.moves[0];
+        int bestMove = moveList.moves[0];
         
         int bestScore = minValue;
         int moveCount = 0;
         
         for (int i = 0; i < moveList.size(); i++) {
         	MoveOrderer.sortNext(moveList, i);
-        	Move move = moveList.moves[i];
+        	int move = moveList.moves[i];
             if (!b.doMove(move)) {
             	b.undoMove(move);
             	continue;
@@ -293,8 +293,8 @@ public class Search {
         			reduction = Tables.lmrTable[Math.min(depth, 63)][Math.min(moveCount, 63)];
         			reduction -= Math.max(-2, 
         					Math.min(2, MoveOrderer.historyTable[side]
-        								[move.getFromSquare()]
-        								[move.getToSquare()]/5000)
+        								[Move.getFrom(move)]
+        								[Move.getTo(move)]/5000)
         					);
         			if (!pvNode) reduction += 1;
         			reduction = Math.min(depth-2, Math.max(reduction, 0));
@@ -392,12 +392,12 @@ public class Search {
 			alpha = staticEvaluation;
 		
 	    MoveList moveList = generator.generateMoves(b, true);
-	    MoveOrderer.scoreMoves(moveList, b, null, -1);
+	    MoveOrderer.scoreMoves(moveList, b, -1, -1);
 		
 		int bestScore = staticEvaluation;
 		for (int i = 0; i < moveList.size(); i++) {
 			MoveOrderer.sortNext(moveList, i);
-			Move move = moveList.moves[i];
+			int move = moveList.moves[i];
 			if (!b.doMove(move)) {
 				b.undoMove(move);
 				continue;
@@ -426,8 +426,8 @@ public class Search {
 	private void updateQuietHistory(MoveList ml, int depth, int side) {
 		
 		for (int i = 0; i < ml.numQuiets(); i++) {
-			Move m = ml.quietsPlayed[i];
-			updateHistory(m.getFromSquare(), m.getToSquare(), side, depth, i == ml.numQuiets()-1);
+			int m = ml.quietsPlayed[i];
+			updateHistory(Move.getFrom(m), Move.getTo(m), side, depth, i == ml.numQuiets()-1);
 
 		}
 	}
@@ -453,8 +453,8 @@ public class Search {
 	 * @param m The move to determine
 	 * @return  True if the move is quiet, false if it is not
 	 */
-	private boolean isQuiet(Move m) {
-		if (m.getCapturedPieceType() != -1 || m.getPromotionPiece() != Piece.NULL) {
+	private boolean isQuiet(int m) {
+		if (Move.getCaptured(m) != Piece.NULL || Move.getPromotion(m) != Piece.NULL) {
 			return false;
 		}
 		return true;
@@ -465,7 +465,7 @@ public class Search {
 	 */
 	private void displayPV() {
 		for (int i = 0; i < pvLength[0]; i++) {
-			System.out.print(pvTable[0][i] + " ");
+			System.out.print(Move.toString(pvTable[0][i]) + " ");
 		}
 	}
 }

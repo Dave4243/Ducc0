@@ -52,15 +52,15 @@ public class Board {
 		pastKeys        = new long[110];
 	}
 	
-	public boolean doMove(Move m) {
+	public boolean doMove(int m) {
 		stack.add(new BoardState(halfMoveClock, zobristKey, castlingRights, enPassantTarget));
 		pastKeys[halfMoveClock] = zobristKey;
 		zobristKey ^= Zobrist.KEYS[Zobrist.CASTLEINDEX + castlingRights];
 		
-		int   fromSquare    = m.getFromSquare();
-		int   toSquare      = m.getToSquare();
+		int   fromSquare    = Move.getFrom(m);
+		int   toSquare      = Move.getTo(m);
 		int   pieceType     = pieces[fromSquare].getType();
-		int   capturedPieceType = m.getCapturedPieceType();
+		int   capturedPieceType = Move.getCaptured(m);
 		Piece capturedPiece = capturedPieceType != -1 ? new Piece(1-sideToMove, capturedPieceType): null;
 		
 		if (pieceType == Piece.PAWN || capturedPieceType != -1) {
@@ -80,9 +80,8 @@ public class Board {
 		
 		// capture
 		if (capturedPieceType != -1) {
-			if (m.isEnPassant()) {
+			if (Move.getEnPassant(m) == 1) {
 				bitBoards[1-sideToMove][capturedPieceType] ^= 0x1L << (toSquare + push[sideToMove]);
-				m.setCapturedPiece(pieces[toSquare + push[sideToMove]]);
 				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(capturedPiece, toSquare + push[sideToMove])];
 				pieces[toSquare + push[sideToMove]] = null;
 			}
@@ -92,14 +91,14 @@ public class Board {
 			}
 		}
 		// castle
-		else if (m.getCastlingFlag() != 0) {
-			castleRook(m.getCastlingFlag(), sideToMove);
+		else if (Move.getCastle(m) != 0) {
+			castleRook(Move.getCastle(m), sideToMove);
 		}
 		// promotion
-		if (m.getPromotionPiece() != -1) {
+		if (Move.getPromotion(m) != -1) {
 			bitBoards[sideToMove][Piece.PAWN] ^= toBB;
-			bitBoards[sideToMove][m.getPromotionPiece()] ^= toBB;
-			pieces[toSquare] = new Piece(sideToMove, m.getPromotionPiece());
+			bitBoards[sideToMove][Move.getPromotion(m)] ^= toBB;
+			pieces[toSquare] = new Piece(sideToMove, Move.getPromotion(m));
 		}
 		
 		zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[toSquare], toSquare)];
@@ -126,17 +125,17 @@ public class Board {
 		return !moveGen.isInCheck(this, getKingpos(1-sideToMove), 1-sideToMove);
 	}
 	
-	public void undoMove(Move m) {
+	public void undoMove(int m) {
 		BoardState pastState = stack.pollLast();
 		enPassantTarget = pastState.getEnPassantBB();
 		moveNumber--;
 		pastKeys[halfMoveClock] = 0;
 		sideToMove = 1-sideToMove;
 
-		int   fromSquare    = m.getFromSquare();
-		int   toSquare      = m.getToSquare();
+		int   fromSquare    = Move.getFrom(m);
+		int   toSquare      = Move.getTo(m);
 		int   pieceType     = pieces[toSquare].getType();
-		int   capturedPieceType = m.getCapturedPieceType();
+		int   capturedPieceType = Move.getCaptured(m);
 		Piece capturedPiece = capturedPieceType != -1 ? new Piece(1-sideToMove, capturedPieceType) : null;
 		
 		long fromBB = 0x1L << fromSquare;
@@ -148,7 +147,7 @@ public class Board {
 		
 		// capture
 		if (capturedPieceType != -1) {
-			if (m.isEnPassant()) {
+			if (Move.getEnPassant(m) == 1) {
 				bitBoards[1-sideToMove][capturedPieceType] ^= 0x1L << (toSquare + push[sideToMove]);
 				pieces[toSquare] = null;
 				pieces[toSquare + push[sideToMove]] = capturedPiece;
@@ -158,13 +157,13 @@ public class Board {
 			}
 		}
 		// castle
-		else if (m.getCastlingFlag() != 0) {
-			castleRook(m.getCastlingFlag(), sideToMove);
+		else if (Move.getCastle(m) != 0) {
+			castleRook(Move.getCastle(m), sideToMove);
 		}
 		// promotion
-		if (m.getPromotionPiece() != -1) {
+		if (Move.getPromotion(m) != -1) {
 			bitBoards[sideToMove][Piece.PAWN] ^= fromBB;
-			bitBoards[sideToMove][m.getPromotionPiece()] ^= fromBB;
+			bitBoards[sideToMove][Move.getPromotion(m)] ^= fromBB;
 			pieces[fromSquare] = new Piece(sideToMove, Piece.PAWN);
 		}
 

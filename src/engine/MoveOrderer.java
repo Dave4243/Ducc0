@@ -1,5 +1,7 @@
 package engine;
 
+import java.util.Arrays;
+
 /**
  * @author Dave4243
  * The MoveOrderer.java class orders moves 
@@ -18,9 +20,9 @@ public class MoveOrderer {
 	 * 5. Quiet moves ordered based on history heuristic
 	 * 6. Losing captures/promotions
 	 */
-	public static void scoreMoves(MoveList moveList, Board b, Move hashMove, int ply) {
+	public static void scoreMoves(MoveList moveList, Board b, int hashMove, int ply) {
 		for (int i = 0; i < moveList.size(); i++) {
-			if (moveList.moves[i].equals(hashMove)) {
+			if (moveList.moves[i] == hashMove) {
 				moveList.scores[i] = Integer.MAX_VALUE;
 			} else {
 				moveList.scores[i]= computeValue(b, moveList.moves[i], ply);
@@ -37,7 +39,7 @@ public class MoveOrderer {
 				bestIndex = i;
 			}
 		}
-		Move temp = moveList.moves[moveNumber];
+		int temp = moveList.moves[moveNumber];
 		moveList.moves[moveNumber] = moveList.moves[bestIndex];
 		moveList.moves[bestIndex] = temp;
 		
@@ -46,18 +48,17 @@ public class MoveOrderer {
 		moveList.scores[bestIndex] = t;
 	}
 	
-	private static int computeValue(Board b, Move m, int ply) {
+	private static int computeValue(Board b, int m, int ply) {
 		// quiet moves are searched after equal captures and killers
-		if (m.getCapturedPieceType() == -1 && m.getPromotionPiece() == Piece.NULL) {
-
-			return historyTable[b.getSideToMove()][m.getFromSquare()][m.getToSquare()];
+		if (Move.getCaptured(m) == Piece.NULL && Move.getPromotion(m) == Piece.NULL) {
+			return historyTable[b.getSideToMove()][Move.getFrom(m)][Move.getTo(m)];
 		}
 		
-		int promotion = pieceValues[m.getPromotionPiece() + 1];
+		int promotion = pieceValues[Move.getPromotion(m) + 1];
 		
-		int aggressor = pieceValues[b.getPiece(m.getFromSquare()).getType()];
+		int aggressor = pieceValues[b.getPiece(Move.getFrom(m)).getType()];
 
-		int victim = pieceValues[m.getCapturedPieceType() + 1];
+		int victim = pieceValues[Move.getCaptured(m) + 1];
 		return (victim + promotion)* 1000 - aggressor;
 	}
 	

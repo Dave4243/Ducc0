@@ -75,13 +75,13 @@ public class UCI {
 		}
 		
 		if (board.getSideToMove() == Piece.WHITE) {
-			Move bestMove = search.getBestMove(board, wtime, winc);
+			int bestMove = search.getBestMove(board, wtime, winc);
 			board.doMove(bestMove);
-			return bestMove.toString();
+			return Move.toString(bestMove);
 		}
-		Move bestMove = search.getBestMove(board, btime, binc);
+		int bestMove = search.getBestMove(board, btime, binc);
 		board.doMove(bestMove);
-		return bestMove.toString();
+		return Move.toString(bestMove);
 		
 	}
 	
@@ -108,13 +108,13 @@ public class UCI {
 		}
 		if (index != 0) {
 			for (int i = index; i < input.length; i++) {
-				Move m = convertToMove(board, input[i]);
+				int m = convertToMove(board, input[i]);
 				board.doMove(m);
 			}
 		}
 	}
 	
-	private static Move convertToMove(Board b, String str) {
+	private static int convertToMove(Board b, String str) {
 		int fromPos = (Integer.valueOf(str.substring(1,2))-1) * 8 + str.charAt(0) - 'a';
 		int toPos   = (Integer.valueOf(str.substring(3,4))-1) * 8 + str.charAt(2) - 'a';
 		
@@ -135,25 +135,25 @@ public class UCI {
 		
 		Piece p = b.getPiece(fromPos);
 		
-		Move result = new Move(fromPos, toPos, promotionPiece);
-		result.setCapturedPiece(b.getPiece(toPos));
-		
+		int result = Move.make(fromPos, toPos, promotionPiece);
+		result = Move.setCap(result, b.getPiece(toPos));
+
 		if (p.getType() == Piece.PAWN 
 				&& (fromPos & 7) != (toPos & 7) 
 				&& b.getPiece(toPos) == null
 				&& toPos == BitBoard.getLSB(b.getEnPassantTarget())) {
-			result.setEnPassant(true);
+			result = Move.setEnPassant(result, 1);
 			int[] push = {-8, 8};
-			result.setCapturedPiece(b.getPiece(toPos + push[b.getSideToMove()]));
+			result = Move.setCap(result, b.getPiece(toPos + push[b.getSideToMove()]));
 		}
 		
 		if (p.getType() == Piece.KING
 				&& Math.abs((fromPos & 7) - (toPos & 7)) == 2) {
-			if (toPos == 2) result.setCastlingFlag(0b0010);
-			if (toPos == 6) result.setCastlingFlag(0b0001);
+			if (toPos == 2) result = Move.setCastle(result, 0b0010);
+			if (toPos == 6) result = Move.setCastle(result, 0b0001);
 			
-			if (toPos == 58) result.setCastlingFlag(0b1000);
-			if (toPos == 62) result.setCastlingFlag(0b0100);
+			if (toPos == 58) result = Move.setCastle(result, 0b1000);
+			if (toPos == 62) result = Move.setCastle(result, 0b0100);
 		}
 
 		return result;
