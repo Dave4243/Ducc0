@@ -1,6 +1,8 @@
 package engine;
 
 public class MoveGenerator {
+    private final int[] push = {-8, 8};
+    private final int[] promotionSourceFiles = {6, 1};
 		
 	/**
 	 * Generates all pseudolegal moves for the position, with the option
@@ -9,8 +11,9 @@ public class MoveGenerator {
 	 * @param onlyCaptures Whether to generate only captures or not
 	 * @return A list of pseudolegal moves for the position
 	 */
-	public MoveList generateMoves(Board b, boolean onlyCaptures) {
-		MoveList result = new MoveList();
+	public void generateMoves(Board b, boolean onlyCaptures, MoveList result) {
+        result.count = 0;
+        result.quietCounter = 0;
 		int color = b.getSideToMove();
 		
 		int  source   = 0;
@@ -26,8 +29,6 @@ public class MoveGenerator {
 		long moveableSquares = 0xffffffffffffffffL;
 		if (onlyCaptures) moveableSquares = b.getPieceBitBoard(1-color);
 		
-		int[] promotionSourceFiles = {6, 1};
-		int[] push = {-8, 8};
 		while (pawns != 0) {
 			source = BitBoard.getLSB(pawns);
 			long captureBB = getPawnCaptures(b, source, color);
@@ -85,8 +86,6 @@ public class MoveGenerator {
 		generateMovesFromBitBoard(result, attackBB, kingIndex, b);
 		
 		if (!onlyCaptures) generateCastles(result, b, color);
-		
-		return result;
 	}
 
 	private void generateMovesFromBitBoard(MoveList result, long attackBitBoard, int source, Board b) {

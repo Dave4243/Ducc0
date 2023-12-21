@@ -24,18 +24,18 @@ public class TranspositionTable {
 		keys[index] = zobristKey;
 	}
 	
-	public Entry lookup(long zobristKey) {
+	public boolean lookup(Entry e, long zobristKey) {
 		int index = getIndex(zobristKey);
-		Entry entry = null;
 		if (keys[index] == zobristKey) {
 			long data = table[index];
-			int eval = (int)(data >>> 32);
-			int depth = (int)(data & 0x3f000000L) >>> 24;
-			byte type = (byte)((data & 0xc0000000L) >>> 30);
-			int m = (int)(data & 0xffffffL);
-			entry = new Entry(keys[index], m, eval, depth, type);
+            e.setHash(keys[index]);
+			e.setEvaluation((int)(data >>> 32));
+			e.setDepth((int)(data & 0x3f000000L) >>> 24);
+			e.setNodeType((byte)((data & 0xc0000000L) >>> 30));
+			e.setBestMove((int)(data & 0xffffffL));
+            return true;
 		}
-		return entry;
+		return false;
 	}
 	
 	public boolean contains(long zobristKey) {

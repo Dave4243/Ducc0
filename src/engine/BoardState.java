@@ -5,9 +5,10 @@ public class BoardState {
 	private long zobristKey;
 	private int  castlingRights;
 	private long enPassantBB;
+    private Piece capturedPiece;
 	
-	public BoardState(int halfmove, long zobristKey, int castlingRights, long enPassant) {
-		this.halfmove = halfmove;
+	public BoardState(int halfMove, long zobristKey, int castlingRights, long enPassant) {
+		this.halfmove = halfMove;
 		this.zobristKey = zobristKey;
 		this.castlingRights = castlingRights;
 		this.enPassantBB = enPassant;
@@ -29,4 +30,20 @@ public class BoardState {
 		return enPassantBB;
 	}
 	
+	public Piece getCaptured() {
+		return capturedPiece;
+	}
+	
+	public void setCaptured(Piece p) {
+		this.capturedPiece = p;
+	}
+	
+	// "constructor" for already present BoardState
+	// this is to save allocation of new BoardStates by using existing ones
+	public void set(int halfMove, long zobristKey, int castlingRights, long enPassant) {
+		this.halfmove = halfMove;
+		this.zobristKey = zobristKey;
+		this.castlingRights = castlingRights;
+		this.enPassantBB = enPassant;
+	}
 }

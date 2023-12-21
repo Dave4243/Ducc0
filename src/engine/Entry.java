@@ -5,14 +5,15 @@ package engine;
  * The TranspositionEntry.java class represnts a transposition table entry.
  */
 public class Entry {
-
+	
+	public static byte UPPER = 2;
+	public static byte LOWER = 1;
+	public static byte EXACT = 0;
+	
 	private long     zobristKey;
 	private int      bestMove;
 	private int      evaluation;
 	private byte     depth;
-	public static byte UPPER = 2;
-	public static byte LOWER = 1;
-	public static byte EXACT = 0;
 	private byte     type;
 	
 	/**
@@ -34,22 +35,42 @@ public class Entry {
 	public long getHash() {
 		return zobristKey;
 	}
+    
+    public void setHash(long h){
+        this.zobristKey = h;
+    }
 	
 	public int getBestMove() {
 		return bestMove;
 	}
+    
+    public void setBestMove(int move){
+        this.bestMove = move;
+    }
 	
 	public int getEvaluation() {
 		return evaluation;
 	}
+    
+    public void setEvaluation(int eval){
+        this.evaluation = eval;
+    }
 	
 	public int getDepth() {
 		return depth;
 	}
+    
+    public void setDepth(int newDepth) {
+        this.depth = (byte)newDepth;
+    }
 	
 	public byte getNodeType() {
 		return type;
 	}
+    
+    public void setNodeType (byte nodeType) {
+        this.type = nodeType;
+    }
 	
 	public String toString() {
 		return "Key: " + zobristKey + '\n' + "Move: " + Move.toString(bestMove)

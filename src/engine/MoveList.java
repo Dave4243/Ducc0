@@ -5,8 +5,8 @@ public class MoveList {
 	public int[] moves;
 	public int[] quietsPlayed;
 	public int[] scores;
-	private int count;
-	private int quietCounter;
+	public int count;
+	public int quietCounter;
 	
 	public MoveList() {
 		moves = new int[128];

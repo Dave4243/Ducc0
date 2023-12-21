@@ -23,7 +23,8 @@ public class Search {
 	private int[][] pvTable;
 	private static final int nullMove = -69;
 	private SearchStack[] ss;
-
+    private MoveList[] quiescenceStack;
+        
 	public Search(Board b) {
 		this.b = b;
 		
@@ -33,9 +34,12 @@ public class Search {
 		MoveOrderer.clearHistory();
 		
 		ss = new SearchStack[maxDepth];
+                quiescenceStack = new MoveList[maxDepth];
 		for (int i = 0; i < maxDepth; i++) {
 			ss[i] = new SearchStack();
+            quiescenceStack[i] = new MoveList();
 		}
+               
 		pvLength = new int[maxDepth];
 		pvTable  = new int[maxDepth][maxDepth];
 	}
@@ -43,6 +47,8 @@ public class Search {
 	class SearchStack {
 		int currentMove;
 		int staticEval;
+        MoveList moveList = new MoveList();
+        Entry ttEntry = new Entry(0,0,0,0, (byte) 0);
 	}
 	
 	/**
@@ -53,103 +59,102 @@ public class Search {
 	 * @return The best move found during the time allocated for search
 	 */
 	public int getBestMove(Board b, int timeleft, int increment) {
-		this.b = b;
-		// in milliseconds
-		long timeAllowance = (long)((timeleft/20.0 + increment/2.0));
-		timeAllowance /= 2;
-		
-		int eval = b.getSideToMove() == Piece.WHITE ? minValue : maxValue;
+        this.b = b;
+        // in milliseconds
+        long timeAllowance = (long)((timeleft/20.0 + increment/2.0));
+        timeAllowance /= 2;
 
-		long startTime = System.currentTimeMillis();
-		endTime = startTime + timeAllowance;
-		absoluteEndTime = startTime + timeleft / 3;
-		int depth;
-		int previousEval = 0;
-		int previousBest = -1;
-		/*
-		 * Iterative deepening:
-		 * Search the position with greater and greater depth, using entries
-		 * stored in the transposition table to improve move ordering.
-		 * Allows the position to be searched to the highest depth given time constraints
-		 */
-		for (depth = 1; depth < maxDepth; depth++) {
+        int eval = b.getSideToMove() == Piece.WHITE ? minValue : maxValue;
+
+        long startTime = System.currentTimeMillis();
+        endTime = startTime + timeAllowance;
+        absoluteEndTime = startTime + timeleft / 3;
+        int depth;
+        int previousEval = 0;
+        int previousBest = -1;
+        /*
+         * Iterative deepening:
+         * Search the position with greater and greater depth, using entries
+         * stored in the transposition table to improve move ordering.
+         * Allows the position to be searched to the highest depth given time constraints
+         */
+        for (depth = 1; depth < maxDepth; depth++) {
 //			eval = search(depth, 0, alpha, beta);
-			eval = aspirationSearch(previousEval, depth);
-			previousEval = eval;
-			boolean aborted = Math.abs(eval) == searchAborted;
-			printStatistics(depth, eval, System.currentTimeMillis() - startTime);
-			if (System.currentTimeMillis() >= absoluteEndTime) {
-				if (aborted) return previousBest;
-				
-				return pvTable[0][0];
-			}
-			
-			if (System.currentTimeMillis() > endTime)
-				break;
-			
-			// mate score
-			if (eval >= maxValue - maxDepth)
-				break;
-			
-			previousBest = pvTable[0][0];
-		}
+            eval = aspirationSearch(previousEval, depth);
+            previousEval = eval;
+            boolean aborted = Math.abs(eval) == searchAborted;
+            printStatistics(depth, eval, System.currentTimeMillis() - startTime);
+            if (System.currentTimeMillis() >= absoluteEndTime) {
+                if (aborted) return previousBest;
 
-		return pvTable[0][0];
-	}
-	
-	/**
-	 * Performs a search with a smaller window to get more cutoffs
-	 * @param prevEval The evaluation of the position searched to the previous depth
-	 * @param depth    The depth of this search
-	 * @return The evaluation of the position after the aspirated search
-	 */
-	private int aspirationSearch(int prevEval, int depth) {
-		int delta = 25;
-		int score = 0;
-		int alpha = minValue;
-		int beta  = maxValue;
-		
-		// only make the smaller windows if depth is high enough-> lower variability in eval
-		if (depth >= 5) {
-			alpha = Math.max(prevEval - delta, minValue);
-			beta  = Math.min(prevEval + delta, maxValue);
-		}
-		
-		while (true) {
-			score = search(depth, 0, alpha, beta);
-			if (System.currentTimeMillis() >= absoluteEndTime) {
-				break;
-			}
-			
-			// fail low, re-search with a lower alpha bound
-			if (score <= alpha) {
-				beta = (alpha + beta)/2;
-				alpha = Math.max(alpha - delta, minValue);
-			}
-			
-			// fail high, re-search with a higher beta bound
-			else if (score >= beta) {
-				beta = Math.min(beta + delta, maxValue);
-			}
-			
-			else {
-				break;
-			}
-			delta *= 2;
-		}
-		return score;
+                return pvTable[0][0];
+            }
+
+            if (System.currentTimeMillis() > endTime)
+                break;
+
+            // mate score
+            if (eval >= maxValue - maxDepth)
+                break;
+
+            previousBest = pvTable[0][0];
+        }
+        return pvTable[0][0];
+    }
+
+    /**
+     * Performs a search with a smaller window to get more cutoffs
+     * @param prevEval The evaluation of the position searched to the previous depth
+     * @param depth    The depth of this search
+     * @return The evaluation of the position after the aspirated search
+     */
+    private int aspirationSearch(int prevEval, int depth) {
+        int delta = 25;
+        int score = 0;
+        int alpha = minValue;
+        int beta  = maxValue;
+
+        // only make the smaller windows if depth is high enough-> lower variability in eval
+        if (depth >= 5) {
+            alpha = Math.max(prevEval - delta, minValue);
+            beta  = Math.min(prevEval + delta, maxValue);
+        }
+
+        while (true) {
+            score = search(depth, 0, alpha, beta);
+            if (System.currentTimeMillis() >= absoluteEndTime) {
+                break;
+            }
+
+            // fail low, re-search with a lower alpha bound
+            if (score <= alpha) {
+                beta = (alpha + beta)/2;
+                alpha = Math.max(alpha - delta, minValue);
+            }
+
+            // fail high, re-search with a higher beta bound
+            else if (score >= beta) {
+                beta = Math.min(beta + delta, maxValue);
+            }
+
+            else {
+                break;
+            }
+            delta *= 2;
+        }
+        return score;
 	}
 	
 	private void printStatistics(int depth, int eval, long time) {
-		System.out.print("info ");
-		System.out.print("depth " + depth         + " ");
-		System.out.print("score cp " + eval       + " ");
+        System.out.print("info ");
+        System.out.print("depth " + depth         + " ");
+        System.out.print("score cp " + eval       + " ");
         System.out.print("time "  + time          + " ");
-		System.out.print("nodes " + nodesSearched + " ");
-		System.out.print("pv ");
-		displayPV();
-		System.out.println();
-		nodesSearched = 0;
+        System.out.print("nodes " + nodesSearched + " ");
+        System.out.print("pv ");
+        displayPV();
+        System.out.println();
+        nodesSearched = 0;
 	}
 	
 	/**
@@ -168,29 +173,28 @@ public class Search {
 		pvLength[ply]  = ply;
 		boolean pvNode = beta - alpha > 1;
 		long    key    = b.getZobristKey();
-		boolean ttHit  = false;
 		
 		if (ply > 0 && b.isRepeat(key) || b.getHalfMoveClock() >= 100) {
 			return 0;
 		}
 		
 		if (depth == 0) {
-			return quiescenceSearch(alpha, beta);
+			return quiescenceSearch(alpha, beta, 0);
 		}
 		
 		nodesSearched++;
 
 		
 		/************************** probes the transposition table ****************************/
-		Entry entry = tTable.lookup(key);
+        boolean ttHit = tTable.lookup(ss[ply].ttEntry, key);
+        Entry entry = ss[ply].ttEntry;
 		int hashMove = -1;
-		if (entry != null) {
+		if (ttHit) {
 			hashMove = entry.getBestMove();
-			ttHit = true;
 		}
 		
 		// use entry if entry depth >= current depth and current node != pv node
-		if (entry != null 
+		if (ttHit
 				&& entry.getDepth() >= depth 
 				&& Math.abs(entry.getEvaluation()) != searchAborted
 				&& !pvNode) {
@@ -208,8 +212,7 @@ public class Search {
 		int side        = b.getSideToMove();
 		boolean inCheck = generator.isInCheck(b, b.getKingpos(side), side);
 		int staticEval  = ttHit ? entry.getEvaluation() : evaluator.evaluatePosition(b);
-//		int improving   = ply >= 2 && !inCheck && staticEval > ss[ply-2].staticEval ? 1 : 0;
-		
+//		int improving   = ply >= 2 && !inCheck && staticEval > ss[ply-2].staticEval ? 1 : 0
 		/**************************** reverse futility pruning ********************************/
 		if (!pvNode
 				&& !inCheck
@@ -242,18 +245,18 @@ public class Search {
 		}
 		/*************************************************************************************/
 		
-	    MoveList moveList = generator.generateMoves(b, false);
-	    MoveOrderer.scoreMoves(moveList, b, hashMove, ply);
+	    generator.generateMoves(b, false, ss[ply].moveList);
+	    MoveOrderer.scoreMoves(ss[ply].moveList, b, hashMove, ply);
 	    
         byte type = Entry.UPPER;
-        int bestMove = moveList.moves[0];
+        int bestMove = ss[ply].moveList.moves[0];
         
         int bestScore = minValue;
         int moveCount = 0;
         
-        for (int i = 0; i < moveList.size(); i++) {
-        	MoveOrderer.sortNext(moveList, i);
-        	int move = moveList.moves[i];
+        for (int i = 0; i < ss[ply].moveList.size(); i++) {
+        	MoveOrderer.sortNext(ss[ply].moveList, i);
+        	int move = ss[ply].moveList.moves[i];
             if (!b.doMove(move)) {
             	b.undoMove(move);
             	continue;
@@ -261,7 +264,7 @@ public class Search {
             ss[ply].currentMove = move;
         	moveCount++;
         	boolean isQuiet = isQuiet(move);
-        	if (isQuiet) moveList.addQuiet(move);
+        	if (isQuiet) ss[ply].moveList.addQuiet(move);
         	
         	/******************************** Late Move Pruning *******************************/
         	if (!pvNode
@@ -338,10 +341,11 @@ public class Search {
 
 	            	if (score >= beta) {
 		        		if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) {
-		        			updateQuietHistory(moveList, depth, side);
+		        			updateQuietHistory(ss[ply].moveList, depth, side);
 		        		}
 	            		type = Entry.LOWER;
 	            		tTable.store(key, move, score, depth, type);
+
 	            		return score; 
 	            	}
             	}
@@ -366,7 +370,7 @@ public class Search {
 	 * @param beta
 	 * @return The evaluation of the position, after all meaningful captures are made
 	 */
-	public int quiescenceSearch(int alpha, int beta) {
+	public int quiescenceSearch(int alpha, int beta, int ply) {
 		if ((nodesSearched & 2047) == 0 && System.currentTimeMillis() >= absoluteEndTime) {
 			return searchAborted;
 		}
@@ -391,26 +395,28 @@ public class Search {
 		if (staticEvaluation > alpha)
 			alpha = staticEvaluation;
 		
-	    MoveList moveList = generator.generateMoves(b, true);
-	    MoveOrderer.scoreMoves(moveList, b, -1, -1);
+	    generator.generateMoves(b, true, quiescenceStack[ply]);
+	    MoveOrderer.scoreMoves(quiescenceStack[ply], b, -1, -1);
 		
 		int bestScore = staticEvaluation;
-		for (int i = 0; i < moveList.size(); i++) {
-			MoveOrderer.sortNext(moveList, i);
-			int move = moveList.moves[i];
+		for (int i = 0; i < quiescenceStack[ply].size(); i++) {
+			MoveOrderer.sortNext(quiescenceStack[ply], i);
+			int move = quiescenceStack[ply].moves[i];
 			if (!b.doMove(move)) {
 				b.undoMove(move);
 				continue;
 			}
 			
-			int score = -quiescenceSearch(-beta, -alpha);
+			int score = -quiescenceSearch(-beta, -alpha, ply+1);
 			b.undoMove(move);
 			
 			if (score > bestScore) {
 				bestScore = score;
 				if (score > alpha) {
 					alpha = score;
-					if (score >= beta) return score;
+					if (score >= beta) {
+                        return score;
+                    }
 				}
 			}
 		}

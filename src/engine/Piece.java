@@ -27,4 +27,12 @@ public class Piece {
 	public int getType() {
 		return type;
 	}
+        
+    public void promote(int newType) {
+        if (type == 0) this.type = (byte) newType;
+    }
+    
+    public void demote() {
+        this.type = 0;
+    }
 }

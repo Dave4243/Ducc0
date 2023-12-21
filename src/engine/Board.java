@@ -1,5 +1,5 @@
 package engine;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 
 /**
  * @author Dave4243
@@ -7,7 +7,6 @@ import java.util.ArrayDeque;
 public class Board {
 	protected long[][] bitBoards;
 	protected Piece[]  pieces; // redundant array based board for easy lookup
-	
 	private long[]     pieceBitBoard;
 	private long       occupiedSquares;
 	private long       emptySquares;
@@ -21,31 +20,45 @@ public class Board {
 	
 	private long[]     pastKeys;
 	
-	private ArrayDeque<BoardState> stack = new ArrayDeque<BoardState>();
+	private ArrayList<BoardState> stack;
 
-	private MoveGenerator moveGen = new MoveGenerator();
+	private MoveGenerator moveGen;
 	
-	int[] push = {-8, 8};
+	private int[] push = {-8, 8};
 	
 	public Board() {
+		moveGen = new MoveGenerator();
 		initalizeBitBoards();
 		initalizeBoard();
 		pastKeys       = new long[110];
 		sideToMove     = Piece.WHITE;
 		castlingRights = 0b1111;
-		zobristKey = Zobrist.getKey(this);
+		zobristKey     = Zobrist.getKey(this);
+		stack = new ArrayList<BoardState>();
+        for (int i = 0; i < 500; i++) {
+        	stack.add(new BoardState(0,0,0,0));
+        }
 	}
 	
 	public Board(String fen) {
-		bitBoards = new long[2][6];
-		pieceBitBoard  = new long[2];
-		pieces = new Piece[64];
+		moveGen = new MoveGenerator();
+		stack   = new ArrayList<BoardState>();
+		
+        for (int i = 0; i < 500; i++) {
+        	stack.add(new BoardState(0,0,0,0));
+        }
+		
+        bitBoards     = new long[2][6];
+		pieceBitBoard = new long[2];
+		pieces        = new Piece[64];
 		FenConverter.convert(this, fen);
+		
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 6; j++) {
 				pieceBitBoard[i] |= bitBoards[i][j];
 			}
 		}
+		
 		occupiedSquares = pieceBitBoard[Piece.WHITE] | pieceBitBoard[Piece.BLACK];
 		emptySquares    = ~occupiedSquares;
 		zobristKey      = Zobrist.getKey(this);
@@ -53,7 +66,9 @@ public class Board {
 	}
 	
 	public boolean doMove(int m) {
-		stack.add(new BoardState(halfMoveClock, zobristKey, castlingRights, enPassantTarget));
+        BoardState bs = stack.get(moveNumber);
+        bs.set(halfMoveClock, zobristKey, castlingRights, enPassantTarget);
+
 		pastKeys[halfMoveClock] = zobristKey;
 		zobristKey ^= Zobrist.KEYS[Zobrist.CASTLEINDEX + castlingRights];
 		
@@ -61,7 +76,7 @@ public class Board {
 		int   toSquare      = Move.getTo(m);
 		int   pieceType     = pieces[fromSquare].getType();
 		int   capturedPieceType = Move.getCaptured(m);
-		Piece capturedPiece = capturedPieceType != -1 ? new Piece(1-sideToMove, capturedPieceType): null;
+		Piece capturedPiece = pieces[toSquare];
 		
 		if (pieceType == Piece.PAWN || capturedPieceType != -1) {
 			halfMoveClock = 0;	
@@ -82,8 +97,10 @@ public class Board {
 		if (capturedPieceType != -1) {
 			if (Move.getEnPassant(m) == 1) {
 				bitBoards[1-sideToMove][capturedPieceType] ^= 0x1L << (toSquare + push[sideToMove]);
+                                capturedPiece = pieces[toSquare + push[sideToMove]];
 				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(capturedPiece, toSquare + push[sideToMove])];
-				pieces[toSquare + push[sideToMove]] = null;
+                                pieces[toSquare + push[sideToMove]] = null;
+                           
 			}
 			else {
 				bitBoards[1-sideToMove][capturedPieceType] ^= toBB;
@@ -98,7 +115,7 @@ public class Board {
 		if (Move.getPromotion(m) != -1) {
 			bitBoards[sideToMove][Piece.PAWN] ^= toBB;
 			bitBoards[sideToMove][Move.getPromotion(m)] ^= toBB;
-			pieces[toSquare] = new Piece(sideToMove, Move.getPromotion(m));
+			pieces[toSquare].promote(Move.getPromotion(m));
 		}
 		
 		zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[toSquare], toSquare)];
@@ -116,7 +133,7 @@ public class Board {
 			zobristKey ^= Zobrist.KEYS[Zobrist.ENPASSANTINDEX + (fromSquare & 7)];
 			enPassantTarget = 0x1L << (toSquare + push[sideToMove]);
 		}
-		
+        stack.get(moveNumber).setCaptured(capturedPiece);
 		zobristKey ^= Zobrist.KEYS[Zobrist.CASTLEINDEX + castlingRights];
 		zobristKey ^= Zobrist.KEYS[Zobrist.SIDEINDEX];
 		recomputeBitBoards();
@@ -126,7 +143,7 @@ public class Board {
 	}
 	
 	public void undoMove(int m) {
-		BoardState pastState = stack.pollLast();
+		BoardState pastState = stack.get(moveNumber-1);
 		enPassantTarget = pastState.getEnPassantBB();
 		moveNumber--;
 		pastKeys[halfMoveClock] = 0;
@@ -136,7 +153,8 @@ public class Board {
 		int   toSquare      = Move.getTo(m);
 		int   pieceType     = pieces[toSquare].getType();
 		int   capturedPieceType = Move.getCaptured(m);
-		Piece capturedPiece = capturedPieceType != -1 ? new Piece(1-sideToMove, capturedPieceType) : null;
+               
+		Piece capturedPiece = pastState.getCaptured();
 		
 		long fromBB = 0x1L << fromSquare;
 		long toBB = 0x1L << toSquare;
@@ -164,7 +182,7 @@ public class Board {
 		if (Move.getPromotion(m) != -1) {
 			bitBoards[sideToMove][Piece.PAWN] ^= fromBB;
 			bitBoards[sideToMove][Move.getPromotion(m)] ^= fromBB;
-			pieces[fromSquare] = new Piece(sideToMove, Piece.PAWN);
+			pieces[fromSquare].demote();
 		}
 
 		castlingRights  = pastState.getCastlingRights();
@@ -233,20 +251,30 @@ public class Board {
 	}
 	
 	public void makeNullMove() {
-		stack.add(new BoardState(halfMoveClock, zobristKey, castlingRights, enPassantTarget));
-		sideToMove = 1-sideToMove;
-		zobristKey ^= Zobrist.KEYS[Zobrist.SIDEINDEX];
-		
-		if (enPassantTarget != 0) {
-			int targetFile = BitBoard.getLSB(enPassantTarget) & 7;
-			zobristKey ^= Zobrist.KEYS[Zobrist.ENPASSANTINDEX + targetFile];
-		}
-		enPassantTarget = 0;
+        BoardState bs = stack.get(moveNumber);
+        bs.set(halfMoveClock, zobristKey, castlingRights, enPassantTarget);
+        
+	    sideToMove = 1-sideToMove;
+	    zobristKey ^= Zobrist.KEYS[Zobrist.SIDEINDEX];
+	    moveNumber++;
+	    if (enPassantTarget != 0) {
+            int targetFile = BitBoard.getLSB(enPassantTarget) & 7;
+            zobristKey ^= Zobrist.KEYS[Zobrist.ENPASSANTINDEX + targetFile];
+	    }
+	    enPassantTarget = 0;
 	}
 	
 	public void unMakeNullMove() {
-		BoardState pastState = stack.pollLast();
+		BoardState pastState = stack.get(moveNumber -1);
+//		BoardState pastState = null;
+//		try{pastState = stack.get(moveNumber-1);}
+//		catch (Exception e) {
+//			System.out.println("Stack size: " + stack.size());
+//			System.out.println("Move number: " + moveNumber);
+//			throw e;
+//		}
 		sideToMove = 1-sideToMove;
+		moveNumber--;	
 		this.halfMoveClock = pastState.getHalfmoves();
 		this.zobristKey = pastState.getZobrist();
 		this.castlingRights = pastState.getCastlingRights();

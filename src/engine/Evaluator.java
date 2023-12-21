@@ -22,18 +22,30 @@ public class Evaluator {
 	// should not be a linear relationship between distance and value
 	// as distance is farther, the bonus drops faster
 	// distance max 14, min 2
-	private final int[][] kingTropismValues = {{0,0}, {2,1}, {1,1}, {4,2}, {8,4}, {0,0}};
+//	private final int[][] kingTropismValues = {{0,0}, {2,1}, {1,1}, {4,2}, {8,4}, {0,0}};
 	
 	private final int[] bishopPairBonus  = {20, 60};
 	private final int tempoBonus = 20;
 	/*===========================================================================================*/
+    
+    private final int[] mgEval = new int[2];
+    private final int[] egEval = new int[2];
+    private final int[] numPieces = new int[6];
 	
 	public int evaluatePosition(Board b)
 	{
-		int[] mgEval = {0, 0};
-		int[] egEval = {0, 0};
+		mgEval[0] = 0;
+        mgEval[1] = 0;
+                
+		egEval[0] = 0;
+        egEval[1] = 0;	
 		
-		int[] numPieces = new int[6];
+		numPieces[0] = 0;
+        numPieces[1] = 0;
+        numPieces[2] = 0;
+        numPieces[3] = 0;
+        numPieces[4] = 0;
+        numPieces[5] = 0;
 		
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 6; j++) {
@@ -157,13 +169,10 @@ public class Evaluator {
 		
 		/*********************************** MOBILITY *****************************************/
 		for (int i = 0; i < 2; i++) {
-			int[] knightMob = getKnightMobility(b, i);
-			int[] bishopMob = getBishopMobility(b, i);
-			int[] rookMob   = getRookMobility(b, i);
-			int[] queenMob  = getQueenMobility(b, i);
-			
-			mgEval[i] += knightMob[0] + bishopMob[0] + rookMob[0] + queenMob[0];
-			egEval[i] += knightMob[1] + bishopMob[1] + rookMob[1] + queenMob[1];
+			getKnightMobility(b, i, mgEval, egEval);
+			getBishopMobility(b, i, mgEval, egEval);
+			getRookMobility  (b, i, mgEval, egEval);
+			getQueenMobility (b, i, mgEval, egEval);
 		}
 		
 		/************************************ TEMPO *****************************************/
@@ -213,7 +222,7 @@ public class Evaluator {
 	   return bPawns & ~frontSpans;
 	}
 	
-	private int[] getKnightMobility(Board b, int color) {
+	private void getKnightMobility(Board b, int color, int[] mg, int[] eg) {
 		int mgMobility = 0;
 		int egMobility = 0;
 		long knightBB = b.getBitBoard(color, Piece.KNIGHT);
@@ -224,10 +233,11 @@ public class Evaluator {
 			egMobility += Tables.egMobilityValues[0][mob];
 			knightBB &= knightBB -1;
 		}
-		return new int[] {mgMobility, egMobility};
+		mg[color] += mgMobility;
+	    eg[color] += egMobility;
 	}
 	
-	private int[] getBishopMobility(Board b, int color) {
+	private void getBishopMobility(Board b, int color, int[] mg, int[] eg) {
 		int mgMobility = 0;
 		int egMobility = 0;
 		long bishopBB = b.getBitBoard(color, Piece.BISHOP);
@@ -241,10 +251,11 @@ public class Evaluator {
 			egMobility += Tables.egMobilityValues[1][mob];
 			bishopBB &= bishopBB -1;
 		}
-		return new int[] {mgMobility, egMobility};
+        mg[color] += mgMobility;
+        eg[color] += egMobility;
 	}
 	
-	private int[] getRookMobility(Board b, int color) {
+	private void getRookMobility(Board b, int color, int mg[], int eg[]) {
 		int mgMobility = 0;
 		int egMobility = 0;
 		long rookBB = b.getBitBoard(color, Piece.ROOK);
@@ -258,10 +269,11 @@ public class Evaluator {
 			egMobility += Tables.egMobilityValues[2][mob];
 			rookBB &= rookBB -1;
 		}
-		return new int[] {mgMobility, egMobility};
+        mg[color] += mgMobility;
+        eg[color] += egMobility;
 	}
 	
-	private int[] getQueenMobility(Board b, int color) {
+	private void getQueenMobility(Board b, int color, int[] mg, int[] eg) {
 		int mgMobility = 0;
 		int egMobility = 0;
 		long queenBB = b.getBitBoard(color, Piece.QUEEN);
@@ -277,6 +289,7 @@ public class Evaluator {
 			egMobility += Tables.egMobilityValues[3][mob];
 			queenBB &= queenBB -1;
 		}
-		return new int[] {mgMobility, egMobility};
+		mg[color] += mgMobility;
+        eg[color] += egMobility;
 	}
 }
