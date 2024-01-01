@@ -8,6 +8,7 @@ public class Board {
 	protected long[][] bitBoards;
 	protected Piece[]  pieces; // redundant array based board for easy lookup
 	private long[]     pieceBitBoard;
+	private long[]     sideBitBoard;
 	private long       occupiedSquares;
 	private long       emptySquares;
 	private long       enPassantTarget;
@@ -49,17 +50,19 @@ public class Board {
         }
 		
         bitBoards     = new long[2][6];
-		pieceBitBoard = new long[2];
+        pieceBitBoard = new long[6];
+		sideBitBoard = new long[2];
 		pieces        = new Piece[64];
 		FenConverter.convert(this, fen);
-		
+
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 6; j++) {
-				pieceBitBoard[i] |= bitBoards[i][j];
+				sideBitBoard[i] |= bitBoards[i][j];
+				pieceBitBoard[j] |= bitBoards[i][j];
 			}
 		}
 		
-		occupiedSquares = pieceBitBoard[Piece.WHITE] | pieceBitBoard[Piece.BLACK];
+		occupiedSquares = sideBitBoard[Piece.WHITE] | sideBitBoard[Piece.BLACK];
 		emptySquares    = ~occupiedSquares;
 		zobristKey      = Zobrist.getKey(this);
 		pastKeys        = new long[110];
@@ -285,8 +288,12 @@ public class Board {
 		return bitBoards[color][type];
 	}
 	
-	public long getPieceBitBoard(int color) {
-		return pieceBitBoard[color];
+	public long getPieceBitBoard(int type) {
+		return pieceBitBoard[type];
+	}
+	
+	public long getSideBitBoard(int color) {
+		return sideBitBoard[color];
 	}
 	
 	public long getOccupiedSquares() {
@@ -363,14 +370,22 @@ public class Board {
 	}
 	
 	private void recomputeBitBoards() {
+		sideBitBoard[0] = 0;
+		sideBitBoard[1] = 0;
+		
 		pieceBitBoard[0] = 0;
 		pieceBitBoard[1] = 0;
+		pieceBitBoard[2] = 0;
+		pieceBitBoard[3] = 0;
+		pieceBitBoard[4] = 0;
+		pieceBitBoard[5] = 0;
 		for (int i = 0; i < 2; i++) {
 			for (int j = 0; j < 6; j++) {
-				pieceBitBoard[i] |= bitBoards[i][j];
+				sideBitBoard[i] |= bitBoards[i][j];
+				pieceBitBoard[j] |= bitBoards[i][j];
 			}
 		}
-		occupiedSquares = pieceBitBoard[Piece.WHITE] | pieceBitBoard[Piece.BLACK];
+		occupiedSquares = sideBitBoard[Piece.WHITE] | sideBitBoard[Piece.BLACK];
 		emptySquares = ~occupiedSquares;
 	}
 	
@@ -380,7 +395,8 @@ public class Board {
 			{0x00ff000000000000L, 0x4200000000000000L, 0x2400000000000000L, 
 			 0x8100000000000000L, 0x0800000000000000L, 0x1000000000000000L}
 		};
-		pieceBitBoard = new long[2];
+		sideBitBoard = new long[2];
+		pieceBitBoard = new long[6];
 		recomputeBitBoards();
 	}
 	
