@@ -186,9 +186,6 @@ public class Search {
 			return quiescenceSearch(alpha, beta, 0);
 		}
 		
-		nodesSearched++;
-
-		
 		/************************** probes the transposition table ****************************/
         boolean ttHit = tTable.lookup(ss[ply].ttEntry, key);
         Entry entry = ss[ply].ttEntry;
@@ -265,6 +262,7 @@ public class Search {
             	b.undoMove(move);
             	continue;
             }
+            nodesSearched++;
             ss[ply].currentMove = move;
         	moveCount++;
         	boolean isQuiet = isQuiet(move);
@@ -379,7 +377,6 @@ public class Search {
 			return searchAborted;
 		}
 		
-		nodesSearched++;
 		int staticEvaluation = evaluator.evaluatePosition(b); // evaluates
 		
 		if (staticEvaluation >= beta)
@@ -408,7 +405,8 @@ public class Search {
 			int move = quiescenceStack[ply].moves[i];
 			
 			// Quiescence SEE pruning
-			if (Move.getPromotion(move) == -1 && !see.staticExchangeEvaluation(b, move, 1)) {
+			if (Move.getPromotion(move) == -1 
+					&& quiescenceStack[ply].scores[i] < MoveOrderer.GOOD_CAPTURE) {
 				continue;
 			}
 			
@@ -416,7 +414,7 @@ public class Search {
 				b.undoMove(move);
 				continue;
 			}
-			
+			nodesSearched++;
 			int score = -quiescenceSearch(-beta, -alpha, ply+1);
 			b.undoMove(move);
 			
