@@ -8,6 +8,8 @@ public class Search {
 	private MoveGenerator      generator;
 	private TranspositionTable tTable;
 	private Board              b;
+	private MoveOrderer        moveSorter;
+	private SEE	               see;
 	
 	private long endTime;
 	private long absoluteEndTime;
@@ -31,7 +33,9 @@ public class Search {
 		evaluator = new Evaluator();
 		generator = new MoveGenerator();
 		tTable    = new TranspositionTable();
-		MoveOrderer.clearHistory();
+		see       = new SEE();
+		moveSorter = new MoveOrderer();
+		moveSorter.clearHistory();
 		
 		ss = new SearchStack[maxDepth];
                 quiescenceStack = new MoveList[maxDepth];
@@ -246,7 +250,7 @@ public class Search {
 		/*************************************************************************************/
 		
 	    generator.generateMoves(b, false, ss[ply].moveList);
-	    MoveOrderer.scoreMoves(ss[ply].moveList, b, hashMove, ply);
+	    moveSorter.scoreMoves(ss[ply].moveList, b, hashMove, ply);
 	    
         byte type = Entry.UPPER;
         int bestMove = ss[ply].moveList.moves[0];
@@ -255,7 +259,7 @@ public class Search {
         int moveCount = 0;
         
         for (int i = 0; i < ss[ply].moveList.size(); i++) {
-        	MoveOrderer.sortNext(ss[ply].moveList, i);
+        	moveSorter.sortNext(ss[ply].moveList, i);
         	int move = ss[ply].moveList.moves[i];
             if (!b.doMove(move)) {
             	b.undoMove(move);
@@ -271,7 +275,7 @@ public class Search {
         			&& !inCheck
         			&& isQuiet
         			&& depth <= 3
-        			&& moveCount >= depth * 10) {
+        			&& moveCount >= depth * 10) {  // maybe could experiment with i (move index) instead of moveCount
         		b.undoMove(move);
         		break;
         	}
@@ -295,7 +299,7 @@ public class Search {
         				&& moveCount >= 3) {
         			reduction = Tables.lmrTable[Math.min(depth, 63)][Math.min(moveCount, 63)];
         			reduction -= Math.max(-2, 
-        					Math.min(2, MoveOrderer.historyTable[side]
+        					Math.min(2, MoveOrderer.butterflyHistory[side]
         								[Move.getFrom(move)]
         								[Move.getTo(move)]/5000)
         					);
@@ -396,12 +400,18 @@ public class Search {
 			alpha = staticEvaluation;
 		
 	    generator.generateMoves(b, true, quiescenceStack[ply]);
-	    MoveOrderer.scoreMoves(quiescenceStack[ply], b, -1, -1);
+	    moveSorter.scoreMoves(quiescenceStack[ply], b, -1, -1);
 		
 		int bestScore = staticEvaluation;
 		for (int i = 0; i < quiescenceStack[ply].size(); i++) {
-			MoveOrderer.sortNext(quiescenceStack[ply], i);
+			moveSorter.sortNext(quiescenceStack[ply], i);
 			int move = quiescenceStack[ply].moves[i];
+			
+			// Quiescence SEE pruning
+			if (Move.getPromotion(move) == -1 && !see.staticExchangeEvaluation(b, move, 1)) {
+				continue;
+			}
+			
 			if (!b.doMove(move)) {
 				b.undoMove(move);
 				continue;
@@ -447,11 +457,11 @@ public class Search {
 	 * @param good  Whether the move was the cutoff move or not
 	 */
 	private void updateHistory(int from, int to, int side, int depth, boolean good) {
-		int entry = MoveOrderer.historyTable[side][from][to];
+		int entry = MoveOrderer.butterflyHistory[side][from][to];
 		int bonus = depth * depth;
 		bonus = good ? bonus : -bonus;
 		
-		MoveOrderer.historyTable[side][from][to] = entry + bonus - entry * Math.abs(bonus)/16384;
+		MoveOrderer.butterflyHistory[side][from][to] = entry + bonus - entry * Math.abs(bonus)/16384;
 	}
 	
 	/**
