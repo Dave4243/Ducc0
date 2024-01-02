@@ -228,7 +228,7 @@ public class Evaluator {
 		long knightBB = b.getBitBoard(color, Piece.KNIGHT);
 		while (knightBB != 0) {
 			int source = BitBoard.getLSB(knightBB);
-			int mob = Long.bitCount(Tables.knightMoves[source] & ~b.getPieceBitBoard(color));
+			int mob = Long.bitCount(Tables.knightMoves[source] & ~b.getSideBitBoard(color));
 			mgMobility += Tables.mgMobilityValues[0][mob];
 			egMobility += Tables.egMobilityValues[0][mob];
 			knightBB &= knightBB -1;
@@ -241,11 +241,12 @@ public class Evaluator {
 		int mgMobility = 0;
 		int egMobility = 0;
 		long bishopBB = b.getBitBoard(color, Piece.BISHOP);
+		long occupied = b.getOccupiedSquares();
 		while (bishopBB != 0){
 			int source = BitBoard.getLSB(bishopBB);
-			long attacks = (MoveGenerator.getDiagonalMoves(b, source, color)
-				      | MoveGenerator.getAntiDiagonalMoves(b, source, color))
-					  & ~b.getPieceBitBoard(color);
+			long attacks = (MoveGenerator.getDiagonalMoves(occupied, source)
+				      | MoveGenerator.getAntiDiagonalMoves(occupied, source))
+					  & ~b.getSideBitBoard(color);
 			int mob = Long.bitCount(attacks);
 			mgMobility += Tables.mgMobilityValues[1][mob];
 			egMobility += Tables.egMobilityValues[1][mob];
@@ -259,11 +260,12 @@ public class Evaluator {
 		int mgMobility = 0;
 		int egMobility = 0;
 		long rookBB = b.getBitBoard(color, Piece.ROOK);
+		long occupied = b.getOccupiedSquares();
 		while (rookBB != 0) {
 			int source = BitBoard.getLSB(rookBB);
-			long attacks = (MoveGenerator.getFileMoves(b, source, color)
-						| MoveGenerator.getRankMoves(b, source, color))
-						& ~b.getPieceBitBoard(color);
+			long attacks = (MoveGenerator.getFileMoves(occupied, source)
+						| MoveGenerator.getRankMoves(occupied, source))
+						& ~b.getSideBitBoard(color);
 			int mob = Long.bitCount(attacks);
 			mgMobility += Tables.mgMobilityValues[2][mob];
 			egMobility += Tables.egMobilityValues[2][mob];
@@ -277,13 +279,14 @@ public class Evaluator {
 		int mgMobility = 0;
 		int egMobility = 0;
 		long queenBB = b.getBitBoard(color, Piece.QUEEN);
+		long occupied = b.getOccupiedSquares();
 		while (queenBB != 0) {
 			int source = BitBoard.getLSB(queenBB);
-			long attacks = (MoveGenerator.getFileMoves(b, source, color)
-					| MoveGenerator.getRankMoves(b, source, color)
-					| MoveGenerator.getDiagonalMoves(b, source, color)
-				    | MoveGenerator.getAntiDiagonalMoves(b, source, color))
-					& ~b.getPieceBitBoard(color);
+			long attacks = (MoveGenerator.getFileMoves(occupied, source)
+					| MoveGenerator.getRankMoves(occupied, source)
+					| MoveGenerator.getDiagonalMoves(occupied, source)
+				    | MoveGenerator.getAntiDiagonalMoves(occupied, source))
+					& ~b.getSideBitBoard(color);
 			int mob = Long.bitCount(attacks);
 			mgMobility += Tables.mgMobilityValues[3][mob];
 			egMobility += Tables.egMobilityValues[3][mob];

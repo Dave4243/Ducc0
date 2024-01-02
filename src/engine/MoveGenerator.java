@@ -26,8 +26,10 @@ public class MoveGenerator {
 		long queens  = b.getBitBoard(color, Piece.QUEEN);
 		long kings   = b.getBitBoard(color, Piece.KING);
 		
-		long moveableSquares = 0xffffffffffffffffL;
-		if (onlyCaptures) moveableSquares = b.getPieceBitBoard(1-color);
+		long moveableSquares = ~b.getSideBitBoard(color);
+		if (onlyCaptures) moveableSquares = b.getSideBitBoard(1-color);
+		
+		long occupiedSquares = b.getOccupiedSquares();
 		
 		while (pawns != 0) {
 			source = BitBoard.getLSB(pawns);
@@ -55,34 +57,34 @@ public class MoveGenerator {
 		
 		while (knights != 0) {
 			source = BitBoard.getLSB(knights);
-			attackBB = getKnightAttacks(b, source, color) & moveableSquares;
+			attackBB = getKnightAttacks(source) & moveableSquares;
 			generateMovesFromBitBoard(result, attackBB, source, b);
 			knights &= knights -1; 
 		}
 		
 		while (bishops != 0) {
 			source = BitBoard.getLSB(bishops);
-			attackBB = getBishopAttacks(b, source, color) & moveableSquares;
+			attackBB = getBishopAttacks(occupiedSquares, source) & moveableSquares;
 			generateMovesFromBitBoard(result, attackBB, source, b);
 			bishops &= bishops -1; 
 		}
 		
 		while (rooks != 0) {
 			source = BitBoard.getLSB(rooks);
-			attackBB = getRookAttacks(b, source, color) & moveableSquares;
+			attackBB = getRookAttacks(occupiedSquares, source) & moveableSquares;
 			generateMovesFromBitBoard(result, attackBB, source, b);
 			rooks &= rooks -1; 
 		}
 		
 		while (queens != 0) {
 			source = BitBoard.getLSB(queens);
-			attackBB = getQueenAttacks(b, source, color) & moveableSquares;
+			attackBB = getQueenAttacks(occupiedSquares, source) & moveableSquares;
 			generateMovesFromBitBoard(result, attackBB, source, b);
 			queens &= queens -1; 
 		}
 		
 		int kingIndex = BitBoard.getLSB(kings);
-		attackBB = getKingAttacks(b, color) & moveableSquares;
+		attackBB = getKingAttacks(kingIndex) & moveableSquares;
 		generateMovesFromBitBoard(result, attackBB, kingIndex, b);
 		
 		if (!onlyCaptures) generateCastles(result, b, color);
@@ -187,25 +189,52 @@ public class MoveGenerator {
 	}
 	
 	public boolean isInCheck(Board b, int kingIndex, int color) {
+		long occupied = b.getOccupiedSquares();
 		if ((getPawnCaptures(b, kingIndex, color) & b.getBitBoard(1-color, Piece.PAWN)) != 0)
 			return true;
 		
-		if ((getKnightAttacks(b, kingIndex, color) & b.getBitBoard(1-color, Piece.KNIGHT)) != 0)
+		if ((getKnightAttacks(kingIndex) & b.getBitBoard(1-color, Piece.KNIGHT)) != 0)
 			return true;
 		
-		if ((getBishopAttacks(b, kingIndex, color) & b.getBitBoard(1-color, Piece.BISHOP)) != 0)
+		if ((getBishopAttacks(occupied, kingIndex) & b.getBitBoard(1-color, Piece.BISHOP)) != 0)
 			return true;
 		
-		if ((getRookAttacks(b, kingIndex, color) & b.getBitBoard(1-color, Piece.ROOK)) != 0)
+		if ((getRookAttacks(occupied, kingIndex) & b.getBitBoard(1-color, Piece.ROOK)) != 0)
 			return true;
 		
-		if ((getQueenAttacks(b, kingIndex, color) & b.getBitBoard(1-color, Piece.QUEEN)) != 0)
+		if ((getQueenAttacks(occupied, kingIndex) & b.getBitBoard(1-color, Piece.QUEEN)) != 0)
 			return true;
 		
-		if ((getKingAttacks(b, color) & b.getBitBoard(1-color, Piece.KING)) != 0)
+		if ((getKingAttacks(kingIndex) & b.getBitBoard(1-color, Piece.KING)) != 0)
 			return true;
 		
 		return false;
+	}
+	
+	public long attacksTo(Board b, int destination) {
+		long wPawnAttacks  = getPawnCaptures(b, destination, Piece.WHITE);
+		long bPawnAttacks  = getPawnCaptures(b, destination, Piece.BLACK);
+		long knightAttacks = getKnightAttacks(destination);
+		long bishopAttacks = getBishopAttacks(b.getOccupiedSquares(), destination);
+		long rookAttacks   = getRookAttacks(b.getOccupiedSquares(), destination);
+		long queenAttacks  = bishopAttacks | rookAttacks;
+		long kingAttacks   = Tables.kingMoves[destination];
+		
+		wPawnAttacks  &= b.getBitBoard(Piece.BLACK, Piece.PAWN);
+		bPawnAttacks  &= b.getBitBoard(Piece.WHITE, Piece.PAWN);
+		knightAttacks &= b.getPieceBitBoard(Piece.KNIGHT);
+		bishopAttacks &= b.getPieceBitBoard(Piece.BISHOP);
+		rookAttacks   &= b.getPieceBitBoard(Piece.ROOK);
+		queenAttacks  &= b.getPieceBitBoard(Piece.QUEEN);
+		kingAttacks   &= b.getPieceBitBoard(Piece.KING);
+		
+		return (wPawnAttacks 
+				| bPawnAttacks 
+				| knightAttacks 
+				| bishopAttacks 
+				| rookAttacks 
+				| queenAttacks
+				| kingAttacks);
 	}
 	
 	public long getPawnMoves(Board b, int source, int pawnColor) {
@@ -220,68 +249,60 @@ public class MoveGenerator {
 		long[] captureTable = Tables.pawnAttacks[pawnColor];
 		long possibleCaptures = captureTable[source];
 		
-		return possibleCaptures & (b.getPieceBitBoard(1-pawnColor)| b.getEnPassantTarget());
+		return possibleCaptures & (b.getSideBitBoard(1-pawnColor)| b.getEnPassantTarget());
 	}
 	
-	public long getKnightAttacks(Board b, int source, int knightColor) {
-		long attackBitBoard = Tables.knightMoves[source];
-		
-		return attackBitBoard &= ~b.getPieceBitBoard(knightColor);
+	public long getKnightAttacks(int source) {
+		return Tables.knightMoves[source];
 	}
 	
-	public long getBishopAttacks(Board b, int source, int bishopColor) {
-		return getDiagonalMoves(b, source, bishopColor) 
-				| getAntiDiagonalMoves(b, source, bishopColor);
+	public long getBishopAttacks(long occupied, int source) {
+		return getDiagonalMoves(occupied, source) 
+				| getAntiDiagonalMoves(occupied, source);
 	}
 	
-	public long getRookAttacks(Board b, int source, int rookColor) {
-		return getRankMoves(b, source, rookColor) 
-				| getFileMoves(b, source, rookColor);
+	public long getRookAttacks(long occupied, int source) {
+		return getRankMoves(occupied, source) 
+				| getFileMoves(occupied, source);
 	}
 	
-	public long getQueenAttacks(Board b, int source, int queenColor) {
-		return getRankMoves(b, source, queenColor) 
-				| getFileMoves(b, source, queenColor)
-				| getDiagonalMoves(b, source, queenColor) 
-				| getAntiDiagonalMoves(b, source, queenColor);
+	public long getQueenAttacks(long occupied, int source) {
+		return getRankMoves(occupied, source) 
+				| getFileMoves(occupied, source)
+				| getDiagonalMoves(occupied, source) 
+				| getAntiDiagonalMoves(occupied, source);
 	}
 	
-	public long getKingAttacks(Board b, int kingColor) {
-		long king           = b.getBitBoard(kingColor, Piece.KING);
-		long attackBitBoard = Tables.kingMoves[BitBoard.getLSB(king)];
-		
-		return attackBitBoard & ~b.getPieceBitBoard(kingColor);
+	public long getKingAttacks(int source) {
+		return Tables.kingMoves[source];
 	}
 	
-	public static long getDiagonalMoves(Board b, int source, int pieceColor) {
-		long occupiedSquares = b.getOccupiedSquares();
+	public static long getDiagonalMoves(long occupiedSquares, int source) {
 		long diagonalMask    = BitBoard.getDiagonalMask(source);
 		long index           = ((diagonalMask & occupiedSquares)
 	    	                       * BitBoard.getFileMask(1)) >>> 58;
 		long attacks         = Tables.slidingAttackLookup[source & 7][(int)index];
 		attacks = (attacks * BitBoard.getFileMask(0)) & diagonalMask;
-		return attacks & ~b.getPieceBitBoard(pieceColor);
+		return attacks;
 	}
 	
-	public static long getAntiDiagonalMoves(Board b, int source, int pieceColor) {
-		long occupiedSquares  = b.getOccupiedSquares();
+	public static long getAntiDiagonalMoves(long occupiedSquares, int source) {
 		long antiDiagonalMask = BitBoard.getAntiDiagonalMask(source);
 		long index            = ((antiDiagonalMask & occupiedSquares) 
 				   				    * BitBoard.getFileMask(1)) >>> 58;
 		long attacks          = Tables.slidingAttackLookup[source & 7][(int)index];
 		attacks = (attacks * BitBoard.getFileMask(0)) & antiDiagonalMask;
-		return attacks & ~b.getPieceBitBoard(pieceColor);
+		return attacks;
 	}
 	
-	public static long getRankMoves(Board b, int source, int pieceColor) {
+	public static long getRankMoves(long occupiedSquares, int source) {
 		int rankIndex = source >>> 3 << 3;
-		long index    = ((b.getOccupiedSquares() >>> rankIndex) >>> 1) & 0x3fL; 
+		long index    = ((occupiedSquares >>> rankIndex) >>> 1) & 0x3fL; 
 		long attacks  = Tables.slidingAttackLookup[source & 7][(int)index];
-		return (attacks << rankIndex) & ~b.getPieceBitBoard(pieceColor);
+		return (attacks << rankIndex);
 	}
 	
-	public static long getFileMoves(Board b, int source, int pieceColor) {
-		long occupiedSquares = b.getOccupiedSquares();
+	public static long getFileMoves(long occupiedSquares, int source) {
 		long aFileMask       = BitBoard.getFileMask(0);
 		long index           = aFileMask & (occupiedSquares >>> (source & 7 ));
 		index                = (index * 0x4081020408000L) >>> 58;
@@ -293,6 +314,6 @@ public class MoveGenerator {
 		attacks = attacks & aFileMask;
 		attacks = attacks << ((source & 7));
 		
-		return attacks & ~b.getPieceBitBoard(pieceColor);
+		return attacks;
 	}
 }
