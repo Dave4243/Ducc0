@@ -12,7 +12,8 @@ public class SEE {
 		int agressorType = b.getPiece(from).getType();
 		
 		// checks for en passant and direct capture
-		int victimType = Move.getEnPassant(move) == 1 ? Piece.PAWN : b.getPiece(target).getType();
+		int victimType = Move.getEnPassant(move) == 1 ? Piece.PAWN 
+				: b.getPiece(target) == null ? 6 : b.getPiece(target).getType();
 
 		int balance = pieceValues[victimType] - threshold;
 		
@@ -27,7 +28,7 @@ public class SEE {
 		if (balance >= 0) {
 			return true;
 		}
-	
+		
 		// calculate attackers to target square
 		long attackers = movegen.attacksTo(b, target);
 		

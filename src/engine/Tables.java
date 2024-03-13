@@ -101,6 +101,8 @@ public class Tables {
     };
     
     public static final int[][] lmrTable = new int[64][64];
+    public static final int[][] lmpTable = new int[10][2];
+    public static final int[][] seeMargins = new int[10][2];
     
     /**
      * Initializes static fields
@@ -142,6 +144,18 @@ public class Tables {
     		}
     	}
     	lmrTable[0][0] = 0;
+    	
+    	/************************** LATE MOVE PRUNING ******************************/
+    	for (int depth = 0; depth < 10; depth++) {
+    		lmpTable[depth][0] = 2 * (int) (2 + 0.5 * depth * depth);
+    		lmpTable[depth][1] = 2* (int) (4 + 0.5 * depth * depth);
+    	}
+    	
+    	/******************************SEE MARGINS**********************************/
+    	for (int depth = 0; depth < 10; depth++) {
+    		seeMargins[depth][0] = -40 * depth * depth;
+    		seeMargins[depth][1] = -80 * depth;
+    	}
     }
     
     private Tables() {}

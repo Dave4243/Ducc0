@@ -4,6 +4,12 @@ import java.util.Scanner;
 public class Test {
 	
 	public static void main(String args[]) {
+		
+//		for (int i = 0; i < 8; i++) {
+//			System.out.println("Depth: " + i + ", Non-improving, moves >= " + Tables.lmpTable[i][0]);
+//			System.out.println("Depth: " + i + ", Improving, moves >= " + Tables.lmpTable[i][1]);
+//			System.out.println();
+//		}
 		testPosition("startpos");
 //		testPosition("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
 //		Piece p = new Piece(0, 5);
@@ -53,9 +59,6 @@ public class Test {
 //		System.out.println("==================");
 		
 //		getCommands();
-		
-		
-//		BitBoard.print(Tables.pawnAttacks[0][13]);
 	}
 	
 	private static void testPosition(String fen) {

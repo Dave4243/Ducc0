@@ -17,7 +17,7 @@ public class Search {
 
 	private static final int maxValue = 1000000;
 	private static final int minValue = -maxValue;
-	private static final int searchAborted = 69000000;
+	private static final int noValue = 69000000;
 	
 	private static final int maxDepth = 100;
 	
@@ -63,6 +63,7 @@ public class Search {
 	 * @return The best move found during the time allocated for search
 	 */
 	public int getBestMove(Board b, int timeleft, int increment) {
+		nodesSearched = 0;
         this.b = b;
         // in milliseconds
         long timeAllowance = (long)((timeleft/20.0 + increment/2.0));
@@ -86,7 +87,7 @@ public class Search {
 //			eval = search(depth, 0, alpha, beta);
             eval = aspirationSearch(previousEval, depth);
             previousEval = eval;
-            boolean aborted = Math.abs(eval) == searchAborted;
+            boolean aborted = Math.abs(eval) == noValue;
             printStatistics(depth, eval, System.currentTimeMillis() - startTime);
             if (System.currentTimeMillis() >= absoluteEndTime) {
                 if (aborted) return previousBest;
@@ -171,7 +172,7 @@ public class Search {
 	 */
 	public int search(int depth, int ply, int alpha, int beta) {
 		if ((nodesSearched & 2047) == 0 && System.currentTimeMillis() >= absoluteEndTime) {
-			return searchAborted;
+			return noValue;
 		}
 		
 		pvLength[ply]  = ply;
@@ -197,7 +198,7 @@ public class Search {
 		// use entry if entry depth >= current depth and current node != pv node
 		if (ttHit
 				&& entry.getDepth() >= depth 
-				&& Math.abs(entry.getEvaluation()) != searchAborted
+				&& Math.abs(entry.getEvaluation()) != noValue
 				&& !pvNode) {
 			int storedScore = entry.getEvaluation();
 			byte type = entry.getNodeType();
@@ -212,8 +213,10 @@ public class Search {
 
 		int side        = b.getSideToMove();
 		boolean inCheck = generator.isInCheck(b, b.getKingpos(side), side);
-		int staticEval  = ttHit ? entry.getEvaluation() : evaluator.evaluatePosition(b);
-//		int improving   = ply >= 2 && !inCheck && staticEval > ss[ply-2].staticEval ? 1 : 0
+		int staticEval  = inCheck ? noValue : 
+							ttHit ? entry.getEvaluation() : evaluator.evaluatePosition(b);
+		int improving   = ply >= 2 && !inCheck && staticEval > ss[ply-2].staticEval ? 1 : 0;
+		
 		/**************************** reverse futility pruning ********************************/
 		if (!pvNode
 				&& !inCheck
@@ -258,6 +261,17 @@ public class Search {
         for (int i = 0; i < ss[ply].moveList.size(); i++) {
         	moveSorter.sortNext(ss[ply].moveList, i);
         	int move = ss[ply].moveList.moves[i];
+        	boolean isQuiet = isQuiet(move);
+        	
+        	/******************************** Late Move Pruning *******************************/
+        	if (!pvNode
+        			&& !inCheck
+        			&& isQuiet
+        			&& depth <= 6
+        			&& i >= Tables.lmpTable[depth][improving]) {  
+        		continue;
+        	}
+        	
             if (!b.doMove(move)) {
             	b.undoMove(move);
             	continue;
@@ -265,19 +279,8 @@ public class Search {
             nodesSearched++;
             ss[ply].currentMove = move;
         	moveCount++;
-        	boolean isQuiet = isQuiet(move);
+        	
         	if (isQuiet) ss[ply].moveList.addQuiet(move);
-        	
-        	/******************************** Late Move Pruning *******************************/
-        	if (!pvNode
-        			&& !inCheck
-        			&& isQuiet
-        			&& depth <= 3
-        			&& moveCount >= depth * 10) {  // maybe could experiment with i (move index) instead of moveCount
-        		b.undoMove(move);
-        		break;
-        	}
-        	
         	int score;
         	int ext = 0;
         	if (inCheck) ext = 1;
@@ -321,7 +324,7 @@ public class Search {
         	b.undoMove(move);
         	
         	if (Math.abs(score) > maxValue +1000)
-        		return searchAborted;
+        		return noValue;
         	
             if (score > bestScore) {
             	bestScore      = score;
@@ -374,7 +377,7 @@ public class Search {
 	 */
 	public int quiescenceSearch(int alpha, int beta, int ply) {
 		if ((nodesSearched & 2047) == 0 && System.currentTimeMillis() >= absoluteEndTime) {
-			return searchAborted;
+			return noValue;
 		}
 		
 		int staticEvaluation = evaluator.evaluatePosition(b); // evaluates
