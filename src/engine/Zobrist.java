@@ -1,5 +1,5 @@
 package engine;
-import java.security.SecureRandom;
+import java.util.Random;
 
 /**
  * @author Dave4243
@@ -14,14 +14,17 @@ public class Zobrist {
 
 	static {
         KEYS = new long[793];
-        SecureRandom r = new SecureRandom();
+        Random r = new Random();
         
-        r.setSeed(3141592653589L);
+        r.setSeed(1);
         
         for (int i = 0; i < 793; i++) {
         	KEYS[i] = r.nextLong();
         }     
 	}
+
+	// function is only used in FenConverter to get the key, otherwise
+	// in search, the key is computed incrementally
 	public static long getKey(Board b) {
 		long result = 0;
 		for (int i = 0; i < 64; i++) {

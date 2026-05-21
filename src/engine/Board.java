@@ -90,7 +90,10 @@ public class Board {
 		
 		long fromBB = 0x1L << fromSquare;
 		long toBB = 0x1L << toSquare;
-		bitBoards[sideToMove][pieceType] ^= fromBB ^ toBB;
+		long updateBB = fromBB ^ toBB;
+		bitBoards[sideToMove][pieceType] ^= updateBB;
+		sideBitBoard[sideToMove] ^= updateBB;
+		pieceBitBoard[pieceType] ^= updateBB;
 		zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(pieces[fromSquare], fromSquare)];
 		
 		pieces[toSquare] = pieces[fromSquare];
@@ -99,14 +102,20 @@ public class Board {
 		// capture
 		if (capturedPieceType != -1) {
 			if (Move.getEnPassant(m) == 1) {
-				bitBoards[1-sideToMove][capturedPieceType] ^= 0x1L << (toSquare + push[sideToMove]);
-                                capturedPiece = pieces[toSquare + push[sideToMove]];
+				updateBB = 0x1L << (toSquare + push[sideToMove]);
+				bitBoards[1-sideToMove][capturedPieceType] ^= updateBB;
+				sideBitBoard[1-sideToMove] ^= updateBB;
+				pieceBitBoard[capturedPieceType] ^= updateBB;
+
+				capturedPiece = pieces[toSquare + push[sideToMove]];
 				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(capturedPiece, toSquare + push[sideToMove])];
-                                pieces[toSquare + push[sideToMove]] = null;
+				pieces[toSquare + push[sideToMove]] = null;
                            
 			}
 			else {
 				bitBoards[1-sideToMove][capturedPieceType] ^= toBB;
+				sideBitBoard[1-sideToMove] ^= toBB;
+				pieceBitBoard[capturedPieceType] ^= toBB;
 				zobristKey ^= Zobrist.KEYS[Utility.getZobristIndex(capturedPiece, toSquare)];
 			}
 		}
@@ -118,6 +127,8 @@ public class Board {
 		if (Move.getPromotion(m) != -1) {
 			bitBoards[sideToMove][Piece.PAWN] ^= toBB;
 			bitBoards[sideToMove][Move.getPromotion(m)] ^= toBB;
+			pieceBitBoard[Piece.PAWN] ^= toBB;
+			pieceBitBoard[Move.getPromotion(m)] ^= toBB;
 			pieces[toSquare].promote(Move.getPromotion(m));
 		}
 		
@@ -131,15 +142,20 @@ public class Board {
 		
 		enPassantTarget = 0;
 		
+		// if pawn, and moved two squares, and there exists adjacent opposite pawns (toSquare +- 1) masked with the curr row
 		if (pieceType == Piece.PAWN 
-				&& Math.abs((fromSquare >>> 3) - (toSquare >>> 3)) == 2) {
+				&& Math.abs((fromSquare >>> 3) - (toSquare >>> 3)) == 2
+				&& (   ((bitBoards[1-sideToMove][Piece.PAWN] & BitBoard.getRowMask(toSquare) & (0x1L << (toSquare + 1))) != 0)
+					|| ((bitBoards[1-sideToMove][Piece.PAWN] & BitBoard.getRowMask(toSquare) & (0x1L << (toSquare - 1))) != 0)  )) {
 			zobristKey ^= Zobrist.KEYS[Zobrist.ENPASSANTINDEX + (fromSquare & 7)];
 			enPassantTarget = 0x1L << (toSquare + push[sideToMove]);
 		}
         stack.get(moveNumber).setCaptured(capturedPiece);
 		zobristKey ^= Zobrist.KEYS[Zobrist.CASTLEINDEX + castlingRights];
 		zobristKey ^= Zobrist.KEYS[Zobrist.SIDEINDEX];
-		recomputeBitBoards();
+
+		occupiedSquares = sideBitBoard[0] | sideBitBoard[1];
+		emptySquares = ~occupiedSquares;
 		moveNumber++;
 		sideToMove = 1 - sideToMove;
 		return !moveGen.isInCheck(this, getKingpos(1-sideToMove), 1-sideToMove);
@@ -161,7 +177,11 @@ public class Board {
 		
 		long fromBB = 0x1L << fromSquare;
 		long toBB = 0x1L << toSquare;
-		bitBoards[sideToMove][pieceType] ^= fromBB ^ toBB;
+
+		long updateBB = fromBB ^ toBB;
+		bitBoards[sideToMove][pieceType] ^= updateBB;
+		sideBitBoard[sideToMove] ^= updateBB;
+		pieceBitBoard[pieceType] ^= updateBB;
 
 		pieces[fromSquare] = pieces[toSquare];
 		pieces[toSquare] = capturedPiece;
@@ -169,12 +189,18 @@ public class Board {
 		// capture
 		if (capturedPieceType != -1) {
 			if (Move.getEnPassant(m) == 1) {
-				bitBoards[1-sideToMove][capturedPieceType] ^= 0x1L << (toSquare + push[sideToMove]);
+				updateBB = 0x1L << (toSquare + push[sideToMove]);
+				bitBoards[1-sideToMove][capturedPieceType] ^= updateBB;
+				sideBitBoard[1-sideToMove] ^= updateBB;
+				pieceBitBoard[capturedPieceType] ^= updateBB;
+
 				pieces[toSquare] = null;
 				pieces[toSquare + push[sideToMove]] = capturedPiece;
 			}
 			else {
 				bitBoards[1-sideToMove][capturedPieceType] ^= toBB;
+				sideBitBoard[1-sideToMove] ^= toBB;
+				pieceBitBoard[capturedPieceType] ^= toBB;
 			}
 		}
 		// castle
@@ -185,6 +211,8 @@ public class Board {
 		if (Move.getPromotion(m) != -1) {
 			bitBoards[sideToMove][Piece.PAWN] ^= fromBB;
 			bitBoards[sideToMove][Move.getPromotion(m)] ^= fromBB;
+			pieceBitBoard[Piece.PAWN] ^= fromBB;
+			pieceBitBoard[Move.getPromotion(m)] ^= fromBB;
 			pieces[fromSquare].demote();
 		}
 
@@ -192,7 +220,8 @@ public class Board {
 		zobristKey      = pastState.getZobrist();
 		enPassantTarget = pastState.getEnPassantBB();
 		halfMoveClock   = pastState.getHalfmoves();
-		recomputeBitBoards();
+		occupiedSquares = sideBitBoard[0] | sideBitBoard[1];
+		emptySquares = ~occupiedSquares;
 	}
 	
 	private void handleCastlingRights(int type) {
@@ -251,6 +280,8 @@ public class Board {
 			break;
 		}
 		bitBoards[color][Piece.ROOK] ^= castleMask;
+		sideBitBoard[color] ^= castleMask;
+		pieceBitBoard[Piece.ROOK] ^= castleMask;
 	}
 	
 	public void makeNullMove() {

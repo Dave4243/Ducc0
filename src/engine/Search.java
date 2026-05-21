@@ -25,7 +25,7 @@ public class Search {
 	private int[][] pvTable;
 	private static final int nullMove = -69;
 	private SearchStack[] ss;
-    private MoveList[] quiescenceStack;
+  	private MoveList[] quiescenceStack;
         
 	public Search(Board b) {
 		this.b = b;
@@ -188,8 +188,8 @@ public class Search {
 		}
 		
 		/************************** probes the transposition table ****************************/
-        boolean ttHit = tTable.lookup(ss[ply].ttEntry, key);
-        Entry entry = ss[ply].ttEntry;
+		boolean ttHit = tTable.lookup(ss[ply].ttEntry, key);
+		Entry entry = ss[ply].ttEntry;
 		int hashMove = -1;
 		if (ttHit) {
 			hashMove = entry.getBestMove();
@@ -202,7 +202,8 @@ public class Search {
 				&& !pvNode) {
 			int storedScore = entry.getEvaluation();
 			byte type = entry.getNodeType();
-			
+			if (storedScore > maxValue - maxDepth) storedScore -= ply;
+			else if (storedScore < minValue + maxDepth) storedScore += ply;
 			if (type == Entry.EXACT
 				|| (type == Entry.UPPER && storedScore <= alpha)
 				|| (type == Entry.LOWER && storedScore >= beta)) {
@@ -249,124 +250,143 @@ public class Search {
 		}
 		/*************************************************************************************/
 		
-	    generator.generateMoves(b, false, ss[ply].moveList);
-	    moveSorter.scoreMoves(ss[ply].moveList, b, hashMove, ply);
-	    
-        byte type = Entry.UPPER;
-        int bestMove = ss[ply].moveList.moves[0];
-        
-        int bestScore = minValue;
-        int moveCount = 0;
-        
-        for (int i = 0; i < ss[ply].moveList.size(); i++) {
-        	moveSorter.sortNext(ss[ply].moveList, i);
-        	int move = ss[ply].moveList.moves[i];
-        	boolean isQuiet = isQuiet(move);
-        	
-        	/******************************** Late Move Pruning *******************************/
-        	if (!pvNode
-        			&& !inCheck
-        			&& isQuiet
-        			&& depth <= 6
-        			&& i >= Tables.lmpTable[depth][improving]) {  
-        		continue;
-        	}
-        	
-            if (!b.doMove(move)) {
-            	b.undoMove(move);
-            	continue;
-            }
-            nodesSearched++;
-            ss[ply].currentMove = move;
-        	moveCount++;
-        	
-        	if (isQuiet) ss[ply].moveList.addQuiet(move);
-        	int score;
-        	int ext = 0;
-        	if (inCheck) ext = 1;
+		generator.generateMoves(b, false, ss[ply].moveList);
+		moveSorter.scoreMoves(ss[ply].moveList, b, hashMove, ply);
 	
-        	/********************** Principal Variation Search ******************************/
-        	
-        	// search starts off assuming the first node is a PV node
-        	if (moveCount == 1) {
-        		score = -search(depth - 1 + ext, ply+1, -beta, -alpha);
-        	}
-        	else {
-        		// late move reduction
-        		int reduction = 0;
-        		if (depth >= 3
-        				&& isQuiet
-        				&& ext == 0
-        				&& moveCount >= 3) {
-        			reduction = Tables.lmrTable[Math.min(depth, 63)][Math.min(moveCount, 63)];
-        			reduction -= Math.max(-2, 
-        					Math.min(2, MoveOrderer.butterflyHistory[side]
-        								[Move.getFrom(move)]
-        								[Move.getTo(move)]/5000)
-        					);
-        			if (!pvNode) reduction += 1;
-        			reduction = Math.min(depth-2, Math.max(reduction, 0));
-        		}
-        		
-        		// for nodes after the first node, use a null window
-        		score = -search(depth-1 + ext - reduction, ply+1, -alpha-1, -alpha);
-        		
-        		// if score ends up being above alpha AND there was a reduction
-        		// then research with null window, but without reduction
-        		if (score > alpha && reduction > 0)
-        			score = -search(depth-1 + ext, ply+1, -alpha-1, -alpha);
-        		
-        		// at this point, if score ends up being above alpha, but less than beta,
-        		// then the node is actually a pv node and prompts a full window research
-        		if (score > alpha && score < beta)
-        			score = -search(depth-1 + ext, ply+1, -beta, -alpha);
-        	}     
-        	b.undoMove(move);
-        	
-        	if (Math.abs(score) > maxValue +1000)
-        		return noValue;
-        	
-            if (score > bestScore) {
-            	bestScore      = score;
-            	bestMove = move;
-            	
-            	/************************ Stores PV in PV table ************************/
-            	pvTable[ply][ply] = move;
-            	
-            	for (int nextPly = ply +1; nextPly < pvLength[ply+1]; nextPly++) {
-            		pvTable[ply][nextPly] = pvTable[ply+1][nextPly];
-            	}
-            	
-            	pvLength[ply] = pvLength[ply+1];
-            	/***********************************************************************/
-            	
-            	if (score > alpha) {
-	            	type  = Entry.EXACT;
-	            	alpha = score;
+		byte type = Entry.UPPER;
+		int bestMove = ss[ply].moveList.moves[0];
+		
+		int bestScore = minValue;
+		int moveCount = 0;
+		
+		for (int i = 0; i < ss[ply].moveList.size(); i++) {
+			moveSorter.sortNext(ss[ply].moveList, i);
+			int move = ss[ply].moveList.moves[i];
+			boolean isQuiet = isQuiet(move);
+			
+			/******************************** Late Move Pruning *******************************/
+			if (!pvNode
+					&& !inCheck
+					&& isQuiet
+					&& depth <= 6
+					&& i >= Tables.lmpTable[depth][improving]) {  
+				continue;
+			}
+			
+			if (!b.doMove(move)) {
+				b.undoMove(move);
+				continue;
+			}
+			nodesSearched++;
+			ss[ply].currentMove = move;
+			moveCount++;
+			
+			if (isQuiet) ss[ply].moveList.addQuiet(move);
+			int score;
+			int ext = 0;
+			if (inCheck) ext = 1;
 
-	            	if (score >= beta) {
-		        		if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) {
-		        			updateQuietHistory(ss[ply].moveList, depth, side);
-		        		}
-	            		type = Entry.LOWER;
-	            		tTable.store(key, move, score, depth, type);
+			/********************** Principal Variation Search ******************************/
+			
+			// search starts off assuming the first node is a PV node
+			if (moveCount == 1) {
+				score = -search(depth - 1 + ext, ply+1, -beta, -alpha);
+			} else {
+				// late move reduction
+				int reduction = 0;
+				if (depth >= 3
+						&& isQuiet
+						&& ext == 0
+						&& moveCount >= 3) {
+					reduction = Tables.lmrTable[Math.min(depth, 63)][Math.min(moveCount, 63)];
+					reduction -= Math.max(-2, 
+							Math.min(2, MoveOrderer.butterflyHistory[side]
+										[Move.getFrom(move)]
+										[Move.getTo(move)]/5000)
+							);
+					if (!pvNode) reduction += 1;
+					reduction = Math.min(depth-2, Math.max(reduction, 0));
+				}
+				
+				// for nodes after the first node, use a null window
+				score = -search(depth-1 + ext - reduction, ply+1, -alpha-1, -alpha);
+				
+				// if score ends up being above alpha AND there was a reduction
+				// then research with null window, but without reduction
+				if (score > alpha && reduction > 0)
+					score = -search(depth-1 + ext, ply+1, -alpha-1, -alpha);
+				
+				// at this point, if score ends up being above alpha, but less than beta,
+				// then the node is actually a pv node and prompts a full window research
+				if (score > alpha && score < beta)
+					score = -search(depth-1 + ext, ply+1, -beta, -alpha);
+			}     
+			b.undoMove(move);
+			
+			if (Math.abs(score) > maxValue +1000)
+				return noValue;
+			
+			if (score > bestScore) {
+				bestScore      = score;
+				bestMove = move;
+				
+				/************************ Stores PV in PV table ************************/
+				// looks like this;
+				/***********************************
+				 * [1][2][3][4][5][6][7][8]    // row 0
+				 * [ ][1][2][3][4][5][6][7]    // row 1
+				 * [ ][ ][1][2][3][4][5][6]    // row 2
+				 * ...
+				 * [ ][ ][ ][ ][ ][ ][ ][1]
+				 * 
+				 * Where 1, 2 ... is the 1st, 2nd ... move of the PV starting from row n moves from the
+				 * starting position
+				 * ********************************/
+				pvTable[ply][ply] = move;
+				
+				for (int nextPly = ply +1; nextPly < pvLength[ply+1]; nextPly++) {
+					pvTable[ply][nextPly] = pvTable[ply+1][nextPly];
+				}
+				
+				pvLength[ply] = pvLength[ply+1];
+				/***********************************************************************/
+				
+				if (score > alpha) {
+					type  = Entry.EXACT;
+					alpha = score;
 
-	            		return score; 
-	            	}
-            	}
-            }
-        }
-        
-        // None of the pseudo-legal moves were legal
-        if (moveCount == 0) {
-	    	// sees if the king is currently in check in this position
-	    	if (!generator.isInCheck(b, b.getKingpos(side), side)) {
-	    		return 0; // stalemate
-	    	}
-	        return minValue + ply; // checkmate
-        }
-        tTable.store(key, bestMove, bestScore, depth, type);
-        return bestScore;
+					if (score >= beta) {
+						if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) {
+							updateQuietHistory(ss[ply].moveList, depth, side);
+						}
+						type = Entry.LOWER;
+
+						int storeScore = score;
+						if (storeScore > maxValue - maxDepth) storeScore += ply;
+						else if (storeScore < minValue + maxDepth) storeScore -= ply;
+						
+						tTable.store(key, move, storeScore, depth, type);
+
+						return score; 
+					}
+				}
+			}
+		}
+		
+		// None of the pseudo-legal moves were legal
+		if (moveCount == 0) {
+			// sees if the king is currently in check in this position
+			if (!generator.isInCheck(b, b.getKingpos(side), side)) {
+				return 0; // stalemate
+			}
+			return minValue + ply; // checkmate
+		}
+		int storeScore = bestScore;
+		if (storeScore > maxValue - maxDepth) storeScore += ply;
+		else if (storeScore < minValue + maxDepth) storeScore -= ply;
+
+		tTable.store(key, bestMove, storeScore, depth, type);
+		return bestScore;
 	}
 	
 	/**
@@ -380,7 +400,7 @@ public class Search {
 			return noValue;
 		}
 		
-		int staticEvaluation = evaluator.evaluatePosition(b); // evaluates
+		int staticEvaluation = evaluator.evaluatePosition(b);
 		
 		if (staticEvaluation >= beta)
 			return staticEvaluation;
@@ -399,8 +419,8 @@ public class Search {
 		if (staticEvaluation > alpha)
 			alpha = staticEvaluation;
 		
-	    generator.generateMoves(b, true, quiescenceStack[ply]);
-	    moveSorter.scoreMoves(quiescenceStack[ply], b, -1, -1);
+		generator.generateMoves(b, true, quiescenceStack[ply]);
+		moveSorter.scoreMoves(quiescenceStack[ply], b, -1, -1);
 		
 		int bestScore = staticEvaluation;
 		for (int i = 0; i < quiescenceStack[ply].size(); i++) {
@@ -426,8 +446,8 @@ public class Search {
 				if (score > alpha) {
 					alpha = score;
 					if (score >= beta) {
-                        return score;
-                    }
+							return score;
+					}
 				}
 			}
 		}
@@ -445,7 +465,6 @@ public class Search {
 		for (int i = 0; i < ml.numQuiets(); i++) {
 			int m = ml.quietsPlayed[i];
 			updateHistory(Move.getFrom(m), Move.getTo(m), side, depth, i == ml.numQuiets()-1);
-
 		}
 	}
 	

@@ -19,16 +19,16 @@ public class Test {
 //		Board b = new Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
 //		b.toString();
 
-//		Board b = new Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
-////     	Board b = new Board();
-//		MoveGenerator mg = new MoveGenerator();
-//		long start = System.nanoTime();
-//		int totalPositions = moveGenerateTest(5, 0, b, mg);
-//		System.out.println("Total: " + totalPositions);
-//		long end = System.nanoTime();
-//		double totalTime = (end - start)/1000000000.0;
-//		System.out.println("Total Time: " + totalTime);
-//		System.out.println("NPS: " + totalPositions/totalTime);
+		Board b = new Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+//     	Board b = new Board();
+		MoveGenerator mg = new MoveGenerator();
+		long start = System.nanoTime();
+		int totalPositions = moveGenerateTest(5, 0, b, mg);
+		System.out.println("Total: " + totalPositions);
+		long end = System.nanoTime();
+		double totalTime = (end - start)/1000000000.0;
+		System.out.println("Total Time: " + totalTime);
+		System.out.println("NPS: " + totalPositions/totalTime);
 		
 //		int move = Move.make(5, 12, Piece.QUEEN);
 //		move = Move.setCap(move, new Piece(1, Piece.PAWN));
@@ -94,9 +94,9 @@ public class Test {
 		for (int i = 0; i < moveList.size(); i++){
 			int m = moveList.moves[i];
 			if (b.doMove(m)) {
-//				if (b.getZobristKey() != Zobrist.getKey(b)) {
-//					System.out.println("ERRORRR");
-//				}
+				if (b.getZobristKey() != Zobrist.getKey(b)) {
+					System.out.println("ERRORRR");
+				}
 				int numPositions = moveGenerateTest(depth-1, ply +1,  b, gen);
 				totalPositions += numPositions;
 				positionsForMove += numPositions;

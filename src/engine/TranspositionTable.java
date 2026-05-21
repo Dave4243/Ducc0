@@ -9,13 +9,11 @@ public class TranspositionTable {
 	
 	public TranspositionTable() {
 		this.setSize(UCI.ttSize);
-		keys = new long[TABLE_SIZE];
-		table = new long[TABLE_SIZE];
 	}
 
 	public void store(long zobristKey, int bestMove, int eval, int depth, byte type) {
 		int index = getIndex(zobristKey);
-		
+		bestMove &= 0x00FFFFFF;
 		bestMove |= (depth << 24) & 0x3f000000L;
 		bestMove |= ((int)type << 30);
 		long entry = (bestMove & 0xffffffffL) | ((long)eval << 32);
@@ -55,9 +53,11 @@ public class TranspositionTable {
 	
 	public void setSize(int hashMB) {
 		TABLE_SIZE = (1048576*hashMB)/16; 
+		keys = new long[TABLE_SIZE];
+		table = new long[TABLE_SIZE];
 	}
 	
 	private int getIndex(long key) {
-		return (int) (Math.abs(key) % TABLE_SIZE);
+		return (int) ((key & 0x7FFFFFFFFFFFFFFFL) % TABLE_SIZE);
 	}
 }
