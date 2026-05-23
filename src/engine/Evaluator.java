@@ -125,15 +125,19 @@ public class Evaluator {
 		mgEval[Piece.BLACK] += Long.bitCount(bkRowMask & openFiles) * exposedKingPenalty[0];
 		
 		/****************************** SEMI-OPEN FILES ***********************************/
-		long semiOpenFiles = BitBoard.fileFill(whitePawns) ^ BitBoard.fileFill(blackPawns);
 
-		mgEval[Piece.WHITE] += Long.bitCount(whiteRooks & semiOpenFiles) * semiOpenFileBonus[0];
-		mgEval[Piece.BLACK] += Long.bitCount(blackRooks & semiOpenFiles) * semiOpenFileBonus[0];
-		egEval[Piece.WHITE] += Long.bitCount(whiteRooks & semiOpenFiles) * semiOpenFileBonus[1];
-		egEval[Piece.BLACK] += Long.bitCount(blackRooks & semiOpenFiles) * semiOpenFileBonus[1];
-		
-		mgEval[Piece.WHITE] += Long.bitCount(wkRowMask & semiOpenFiles) * exposedKingPenalty[0]/2;
-		mgEval[Piece.BLACK] += Long.bitCount(bkRowMask & semiOpenFiles) * exposedKingPenalty[0]/2;
+		long whiteSemiOpen = ~BitBoard.fileFill(whitePawns) & BitBoard.fileFill(blackPawns);
+		long blackSemiOpen = BitBoard.fileFill(whitePawns) & ~BitBoard.fileFill(blackPawns);
+
+		// Rooks want their own pawn missing
+		mgEval[Piece.WHITE] += Long.bitCount(whiteRooks & whiteSemiOpen) * semiOpenFileBonus[0];
+		mgEval[Piece.BLACK] += Long.bitCount(blackRooks & blackSemiOpen) * semiOpenFileBonus[0];
+		egEval[Piece.WHITE] += Long.bitCount(whiteRooks & whiteSemiOpen) * semiOpenFileBonus[1];
+		egEval[Piece.BLACK] += Long.bitCount(blackRooks & blackSemiOpen) * semiOpenFileBonus[1];
+
+		// Kings fear their own pawn missing
+		mgEval[Piece.WHITE] += Long.bitCount(wkRowMask & whiteSemiOpen) * exposedKingPenalty[0]/2;
+		mgEval[Piece.BLACK] += Long.bitCount(bkRowMask & blackSemiOpen) * exposedKingPenalty[0]/2;
 		
 		/************************** PASSED PAWN EVALUATION *******************************/
 		long whitePassers = getWhitePassers(whitePawns, blackPawns);
@@ -194,7 +198,8 @@ public class Evaluator {
 		phase -= numPieces[2] * bishopPhase;
 		phase -= numPieces[3] * rookPhase;
 		phase -= numPieces[4] * queenPhase;
-
+		
+		phase = Math.max(0, phase);
 		phase = (phase * 256 + (totalPhase / 2)) / totalPhase;
 		
 		int openingEval = mgEval[0] - mgEval[1];

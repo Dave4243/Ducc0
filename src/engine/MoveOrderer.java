@@ -65,7 +65,7 @@ public class MoveOrderer {
 		}
 		
 		// captures are ordered based on good/bad captures + MVVLVA
-		int aggressor = pieceValues[b.getPiece(Move.getFrom(m)).getType()];
+		int aggressor = pieceValues[b.getPiece(Move.getFrom(m)).getType() + 1];
 
 		int victim = pieceValues[Move.getCaptured(m) + 1];
 		
