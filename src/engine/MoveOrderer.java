@@ -12,6 +12,7 @@ public class MoveOrderer {
 	private int[] promotionValues = {0, 10000000, -10000001, -10000000, 10000001, 0};
 	
 	public static int[][][] butterflyHistory = new int[2][64][64];
+	public static int[][] killerTable = new int[100][2];
 	private SEE see = new SEE();
 	
 	/**
@@ -53,9 +54,13 @@ public class MoveOrderer {
 	private int computeValue(Board b, int m, int ply) {
 		int capture = Move.getCaptured(m);
 		int promotion = Move.getPromotion(m);
-		
-		// quiet moves are ordered based on butterfly history
+
 		if (capture == Piece.NULL && promotion == Piece.NULL) {
+			// killer moves here
+			if (m == killerTable[ply][0] || m == killerTable[ply][1]) {
+				return GOOD_CAPTURE;
+			}
+			// quiet moves are ordered based on butterfly history
 			return butterflyHistory[b.getSideToMove()][Move.getFrom(m)][Move.getTo(m)];
 		}
 		
@@ -83,4 +88,34 @@ public class MoveOrderer {
 		butterflyHistory = new int[2][64][64];
 	}
 	
+	public void clearKillers() {
+		killerTable = new int[100][2];
+	}
+
+	// public void printHistory() {
+		
+	// 	for (int i = 0; i < 64; i++) {
+	// 		for (int j = 0; j < 64; j++) {
+	// 			int value = butterflyHistory[0][i][j];
+	// 			if (value != 0) {
+	// 				System.out.print(value + " ");
+	// 			}
+				
+	// 		}
+	// 		System.out.println();
+	// 	}
+	// 	System.out.println();
+	// 	for (int i = 0; i < 64; i++) {
+	// 		for (int j = 0; j < 64; j++) {
+	// 			int value = butterflyHistory[1][i][j];
+	// 			if (value != 0) {
+	// 				System.out.print(value + " ");
+	// 			}
+				
+	// 		}
+	// 		System.out.println();
+	// 	}
+
+	// 	System.out.println("----------------------------------");
+	// }
 }

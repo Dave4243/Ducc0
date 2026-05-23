@@ -9,7 +9,6 @@ public class Search {
 	private TranspositionTable tTable;
 	private Board              b;
 	private MoveOrderer        moveSorter;
-	private SEE	               see;
 	
 	private long endTime;
 	private long absoluteEndTime;
@@ -33,9 +32,9 @@ public class Search {
 		evaluator = new Evaluator();
 		generator = new MoveGenerator();
 		tTable    = new TranspositionTable();
-		see       = new SEE();
 		moveSorter = new MoveOrderer();
 		moveSorter.clearHistory();
+		moveSorter.clearKillers();
 		
 		ss = new SearchStack[maxDepth];
                 quiescenceStack = new MoveList[maxDepth];
@@ -357,6 +356,7 @@ public class Search {
 
 					if (score >= beta) {
 						if (isQuiet && (ply <= 1 || (ss[ply-1].currentMove != nullMove))) {
+							storeKiller(ply, move);
 							updateQuietHistory(ss[ply].moveList, depth, side);
 						}
 						type = Entry.LOWER;
@@ -454,6 +454,23 @@ public class Search {
 		return bestScore;
 	}
 	
+	private void storeKiller(int ply, int m) {
+		int[] storedKillers = MoveOrderer.killerTable[ply];
+		// if any are the same, or if they are 0, store it and return
+		for (int i = 0; i < 2; i++) {
+			if (m == storedKillers[i]) {
+				return;
+			}
+			if (storedKillers[i] == 0) {
+				MoveOrderer.killerTable[ply][i] = m;
+				return;
+			}
+		}
+		// push out the last killer move and put in the new
+		MoveOrderer.killerTable[ply][0] = MoveOrderer.killerTable[ply][1];
+		MoveOrderer.killerTable[ply][1] = m;
+	}
+
 	/**
 	 * Assigns a bonus to the quiet cutoff move, penalties to all other played quiets
 	 * @param ml    The MoveList
