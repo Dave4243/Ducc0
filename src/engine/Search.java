@@ -240,7 +240,10 @@ public class Search {
 			int reduction = Math.min(depth-1, 3 + depth/3);
 			int score = -search(depth - reduction, ply + 1, -beta, -beta+1);
 			b.unMakeNullMove();
-			
+			// Intercept the abort before the beta check
+			if (Math.abs(score) > maxValue + 1000) {
+				return noValue;
+			}
 			if (score >= beta) {
 				if (score >= maxValue - 100)
 					return beta;
@@ -441,6 +444,10 @@ public class Search {
 			int score = -quiescenceSearch(-beta, -alpha, ply+1);
 			b.undoMove(move);
 			
+			// propagate no value upwards
+			if (Math.abs(score) > maxValue + 1000) {
+				return noValue; 
+			}
 			if (score > bestScore) {
 				bestScore = score;
 				if (score > alpha) {
